@@ -3,6 +3,5 @@
 project ("FrostEngine")
 
 add_subdirectory ("Graphics")
-add_subdirectory ("GLFW")
 add_subdirectory ("Tests")
 add_subdirectory("Lib")

@@ -22,7 +22,7 @@ namespace Core
 	using uint		= uint32;
 
 	using namespace std::string_literals;
-	inline const bst::format operator"" f(const char* ch, size_t len)
+	inline bst::format operator""_f(const char* ch, size_t len)
 	{
 		return bst::format(ch);
 	}
@@ -31,9 +31,9 @@ namespace Core
 	struct DeleteWith
 	{
 		template<class T>
-		constexpr void operator()(T* int_ptr)
+		constexpr void operator()(T* ptr)
 		{
-			Fn(int_ptr);
+			Fn(ptr);
 		}
 	};
 

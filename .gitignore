@@ -1,3 +1,4 @@
 .vs
 GLFW
 out
+*.json

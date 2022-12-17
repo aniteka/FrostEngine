@@ -71,14 +71,14 @@ private:
 		// by GLFW for creating Vulkan surfaces for GLFW windows
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 		if (glfwExtensionCount == NULL)
-			throw std::runtime_error(( "failed to get extensions for Vulkan: %1%"f % glfwGetError(NULL) ).str());
+			throw graphic_exception("failed to get extensions for Vulkan", glfwGetError(NULL));
 
 		createInfo.enabledExtensionCount = glfwExtensionCount;
 		createInfo.ppEnabledExtensionNames = glfwExtensions;
 		createInfo.enabledLayerCount = 0;
 
 		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
-			throw std::runtime_error(( "failed to create instance: %1%"f % glfwGetError(NULL) ).str());
+			throw graphic_exception("failed to create instance", glfwGetError(NULL));
 	}
 
 private:
@@ -101,4 +101,14 @@ void Graphics::test()
 		std::cerr << e.what() << std::endl;
 		exit(EXIT_FAILURE);
 	}
+}
+
+graphic_exception::graphic_exception(const char* msg, int error_code)
+	: std::runtime_error( ("%1%: %2%"_f % msg % error_code).str() )
+	, _error_code(error_code)
+{}
+
+int graphic_exception::get_code() const
+{
+	return _error_code;
 }

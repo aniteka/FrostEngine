@@ -3,10 +3,11 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <Core/Core.h>
 #include <Core/Lib/Lib.h>
+#include <iostream>
 
 using namespace Core;
-
 
 class HelloTriangleApplication
 {
@@ -71,23 +72,27 @@ private:
 		// by GLFW for creating Vulkan surfaces for GLFW windows
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 		if (glfwExtensionCount == NULL)
-			throw graphic_exception("failed to get extensions for Vulkan", glfwGetError(NULL));
+			throw graphic_exception();
 
 		createInfo.enabledExtensionCount = glfwExtensionCount;
 		createInfo.ppEnabledExtensionNames = glfwExtensions;
 		createInfo.enabledLayerCount = 0;
 
 		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
-			throw graphic_exception("failed to create instance", glfwGetError(NULL));
+			throw graphic_exception();
 	}
 
 private:
 	WindowPtr window;
 	// Connecting between application and libVulkan. To init it
 	// we need to get it information about out app
-	VkInstance instance;
+	VkInstance instance = nullptr;
+#ifdef NDEBUG
+	const bool USE_VALIDATION_LAYERS = false;
+#else
+	const bool USE_VALIDATION_LAYERS = true;
+#endif
 };
-
 
 void Graphics::test()
 {
@@ -104,9 +109,16 @@ void Graphics::test()
 }
 
 graphic_exception::graphic_exception(const char* msg, int error_code)
-	: std::runtime_error( ("%1%: %2%"_f % msg % error_code).str() )
-	, _error_code(error_code)
+	: std::exception{ ("%s: %i"_f % msg % error_code).str().c_str() }
+	, _error_code{error_code}
 {}
+
+graphic_exception::graphic_exception()
+{
+	const char* msg;
+	_error_code = glfwGetError(&msg);
+	std::exception::operator=(std::exception(("%s: %i"_f % msg % _error_code).str().c_str()));
+}
 
 int graphic_exception::get_code() const
 {

@@ -1,25 +1,9 @@
-﻿// Lib.h : Header file for your target.
-
-#pragma once
-#include <iostream>
-#include <memory>
-#include <functional>
-#include <string>
+﻿#pragma once
 #include <boost/format.hpp>
 
 namespace Core
 {
 	namespace bst = boost;
-
-	using uint8		= unsigned char;
-	using int8		= signed char;
-	using uint16	= unsigned short;
-	using int16		= signed short;
-	using uint32	= unsigned long;
-	using int32		= signed long;
-	using uint64	= unsigned long long;
-	using int64		= long long;
-	using uint		= uint32;
 
 	using namespace std::string_literals;
 	inline bst::format operator""_f(const char* ch, size_t len)
@@ -36,5 +20,4 @@ namespace Core
 			Fn(ptr);
 		}
 	};
-
 }

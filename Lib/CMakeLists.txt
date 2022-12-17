@@ -7,7 +7,7 @@ find_package(Boost 1.80.0 REQUIRED)
 
 add_library(Lib STATIC 
     "src/Lib.cpp" 
-    "include/Core/Lib/Lib.h")
+    "include/Core/Lib/Lib.h" "include/Core/Core.h")
 
 set_property(TARGET Lib PROPERTY CXX_STANDARD 20)
 

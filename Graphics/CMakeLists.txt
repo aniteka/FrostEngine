@@ -6,7 +6,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include/Core/Graphics)
 link_libraries(Lib)
 find_package(Vulkan REQUIRED)
 find_package(Boost 1.80.0 REQUIRED)
-find_package(glfw3 REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
 
 add_library(Graphics STATIC 
     "src/Graphics.cpp" 
@@ -15,13 +15,13 @@ add_library(Graphics STATIC
 set_property(TARGET Graphics PROPERTY CXX_STANDARD 20)
 
 target_link_libraries(Graphics
-    PRIVATE glfw
+    PRIVATE glfw 
     PRIVATE Vulkan::Vulkan)
 
 target_include_directories(Graphics
     PUBLIC "${Lib_SOURCE_DIR}/include"
-    PUBLIC "${GLFW_SOURCE_DIR}/include"
-    PUBLIC "${Vulkan_INCLUDE_DIRS}"
+    PUBLIC "${Vulkan_INCLUDE_DIR}"
+    PUBLIC "${GLFW_INCLUDE_DIRS}"
     PUBLIC "${Boost_INCLUDE_DIRS}")
 
 # Cosmetic:

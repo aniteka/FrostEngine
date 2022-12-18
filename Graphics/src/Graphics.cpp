@@ -6,8 +6,8 @@
 #include <Core/Core.h>
 #include <Core/Lib/Lib.h>
 #include <iostream>
-#include <vector>
 #include <cstring>
+#include <vector>
 
 using namespace Core;
 
@@ -36,6 +36,7 @@ private:
 	void initVulkan()
 	{
 		createInstance();
+		setupDebugMessenger();
 	}
 	void mainLoop()
 	{
@@ -48,6 +49,8 @@ private:
 	}
 	void cleanup()
 	{
+		if(USE_VALIDATION_LAYERS)
+			DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
 		vkDestroyInstance(instance, nullptr);
 		glfwTerminate();
 	}
@@ -67,17 +70,9 @@ private:
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		uint32_t glfwExtensionCount = 0;
-		const char** glfwExtensions;
-
-		// This function returns an array of names of Vulkan instance extensions required 
-		// by GLFW for creating Vulkan surfaces for GLFW windows
-		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-		if (glfwExtensionCount == NULL)
-			throw graphic_exception();
-
-		createInfo.enabledExtensionCount = glfwExtensionCount;
-		createInfo.ppEnabledExtensionNames = glfwExtensions;
+		auto extensions = getRequiredExtensions();
+		createInfo.enabledExtensionCount = (uint32_t)extensions.size();
+		createInfo.ppEnabledExtensionNames = extensions.data();
 
 		if (USE_VALIDATION_LAYERS)
 		{
@@ -112,12 +107,84 @@ private:
 
 		return true;
 	}
+	std::vector<const char*> getRequiredExtensions()
+	{
+		uint32_t glfwExtensionCount = 0;
+		const char** glfwExtensions;
+		// This function returns an array of names of Vulkan instance extensions required 
+		// by GLFW for creating Vulkan surfaces for GLFW windows
+		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+		if (glfwExtensionCount == NULL)
+			throw graphic_exception();
+
+		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+		// Need to use callback error handling functions
+		if (USE_VALIDATION_LAYERS)
+		{
+			extensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		}
+		return extensions;
+	}
+	void setupDebugMessenger()
+	{
+		if (!USE_VALIDATION_LAYERS) return;
+		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		// the severity levels for which the callback function will be called. 
+		createInfo.messageSeverity
+			= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+			| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+			| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+			| VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+		// allows you to filter messages by type
+		createInfo.messageType
+			= VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+			| VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+			| VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		createInfo.pfnUserCallback = debugCallback;
+		createInfo.pUserData = nullptr;
+
+		auto res = CreateDebugUtilsMessangerEXT(instance, &createInfo, nullptr, &debugMessenger);
+		if (res != VK_SUCCESS)
+			throw graphic_exception("failed to setup debug messenger", glfwGetError(NULL));
+	}
+
+	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+		// The first parameter specifies the severity of the message.
+		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+		// See doc
+		VkDebugUtilsMessageTypeFlagsEXT messageType,
+		// Message
+		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+		void* pUserData) {
+
+		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+		// If not false, abort the call
+		return VK_FALSE;
+	}
+
+	VkResult CreateDebugUtilsMessangerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
+	{
+		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+		if (func == nullptr)
+			return VK_ERROR_EXTENSION_NOT_PRESENT;
+		return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+	}
+	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+		if (func != nullptr) {
+			func(instance, debugMessenger, pAllocator);
+		}
+	}
 
 private:
 	WindowPtr window;
 	// Connecting between application and libVulkan. To init it
 	// we need to get it information about out app
 	VkInstance instance = nullptr;
+
+	VkDebugUtilsMessengerEXT debugMessenger;
 
 	// All useful validations collected in VK_LAYER_KHRONOS_validation
 	const std::vector<const char*> validationLayers{

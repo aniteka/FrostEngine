@@ -6,6 +6,8 @@
 #include <Core/Core.h>
 #include <Core/Lib/Lib.h>
 #include <iostream>
+#include <vector>
+#include <cstring>
 
 using namespace Core;
 
@@ -76,10 +78,39 @@ private:
 
 		createInfo.enabledExtensionCount = glfwExtensionCount;
 		createInfo.ppEnabledExtensionNames = glfwExtensions;
-		createInfo.enabledLayerCount = 0;
+
+		if (USE_VALIDATION_LAYERS)
+		{
+			if (!checkValidationLayerSupport())
+				throw graphic_exception{ "validation layers requested, but not available!", -1 };
+			createInfo.enabledLayerCount = (uint32_t)validationLayers.size();
+			createInfo.ppEnabledLayerNames = validationLayers.data();
+		}
+		else
+			createInfo.enabledLayerCount = 0;
 
 		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
 			throw graphic_exception();
+	}
+	bool checkValidationLayerSupport()
+	{
+		uint32_t layersCount;
+		// Getting list of available layers
+		vkEnumerateInstanceLayerProperties(&layersCount, nullptr);
+
+		std::vector<VkLayerProperties> availableLayers(layersCount);
+		vkEnumerateInstanceLayerProperties(&layersCount, availableLayers.data());
+
+		for (const auto& i : validationLayers)
+		{
+			for (const auto& j : availableLayers)
+				if (strcmp(j.layerName, i) == 0)
+					goto NEXT;
+			return false;
+			NEXT:{}
+		}
+
+		return true;
 	}
 
 private:
@@ -87,6 +118,12 @@ private:
 	// Connecting between application and libVulkan. To init it
 	// we need to get it information about out app
 	VkInstance instance = nullptr;
+
+	// All useful validations collected in VK_LAYER_KHRONOS_validation
+	const std::vector<const char*> validationLayers{
+		"VK_LAYER_KHRONOS_validation"
+	};
+
 #ifdef NDEBUG
 	const bool USE_VALIDATION_LAYERS = false;
 #else

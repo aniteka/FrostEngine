@@ -10,7 +10,7 @@ namespace Core
 		static void test();
 	};
 
-	class graphic_exception : public std::exception
+	class graphic_exception : public std::runtime_error
 	{
 	public:
 		graphic_exception(const char* msg, int error_code);

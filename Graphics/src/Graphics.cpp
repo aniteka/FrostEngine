@@ -8,12 +8,17 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
+#include <map>
+#include <optional>
 
 using namespace Core;
 
+struct QueueFamilyIndices {
+	std::optional<uint32_t> graphicsFamily;
+};
+
 class HelloTriangleApplication
 {
-	using WindowPtr = std::unique_ptr < GLFWwindow, DeleteWith < glfwDestroyWindow > > ;
 public:
 	void run()
 	{
@@ -31,17 +36,19 @@ private:
 		// Turn off resizable
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 		// Create window
-		window = WindowPtr(glfwCreateWindow(500, 500, "Vulkan", nullptr, nullptr));
+		window = glfwCreateWindow(500, 500, "Vulkan", nullptr, nullptr);
 	}
 	void initVulkan()
 	{
 		createInstance();
 		setupDebugMessenger();
+		pickPhysicalDevice();
+		createLogicalDevice();
 	}
 	void mainLoop()
 	{
 		// Check close flag
-		while(!glfwWindowShouldClose(window.get()))
+		while(!glfwWindowShouldClose(window))
 		{
 			// Processes all pending events
 			glfwPollEvents();
@@ -52,6 +59,8 @@ private:
 		if(USE_VALIDATION_LAYERS)
 			DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
 		vkDestroyInstance(instance, nullptr);
+		vkDestroyDevice(device, nullptr);
+		glfwDestroyWindow(window);
 		glfwTerminate();
 	}
 	void createInstance()
@@ -148,6 +157,120 @@ private:
 		if (res != VK_SUCCESS)
 			throw graphic_exception("failed to setup debug messenger", glfwGetError(NULL));
 	}
+	void pickPhysicalDevice()
+	{
+		uint32_t deviceCount = 0;
+		// Get count of GPUs
+		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+		if (deviceCount == 0)
+			throw graphic_exception("failde to find GPUs with Vulkan support", glfwGetError(NULL));
+		std::vector<VkPhysicalDevice> devices(deviceCount);
+		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+		
+		// Pick the most suitable GPU
+		std::multimap<int, VkPhysicalDevice> candidates;
+
+		for (const auto& device : devices)
+		{
+			int score = rateDeviceSuitability(device);
+			candidates.emplace(score, device);
+		}
+
+		if (candidates.rbegin()->first > 0)
+			physicalDevice = candidates.rbegin()->second;
+		else
+			throw graphic_exception("failed to find a suitable GPU", 0);
+	}
+	int rateDeviceSuitability(VkPhysicalDevice device)
+	{
+		// Main properties 
+		VkPhysicalDeviceProperties deviceProps;
+		vkGetPhysicalDeviceProperties(device, &deviceProps);
+		// Additional properties
+		VkPhysicalDeviceFeatures deviceFeats;
+		vkGetPhysicalDeviceFeatures(device, &deviceFeats);
+		int score = 0;
+		
+		// Check if device is gpu
+		if (deviceProps.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+			score += 1000;
+
+		// Max possible texture size of textures affects graphics quality
+		score += deviceProps.limits.maxImageDimension2D;
+
+		if (!isDeviceSuitable(device))
+			return 0;
+		// App can't function without geometry shaders
+		if (!deviceFeats.geometryShader)
+			return 0;
+		return score;
+	}
+	bool isDeviceSuitable(VkPhysicalDevice device)
+	{
+		return findQueueFamilies(device).graphicsFamily.has_value();
+	}
+	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device)
+	{
+		QueueFamilyIndices to_ret;
+
+		uint32_t queueFamilyCount = 0;
+		vkGetPhysicalDeviceQueueFamilyProperties(
+			device, 
+			&queueFamilyCount, 
+			nullptr);
+
+		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+		vkGetPhysicalDeviceQueueFamilyProperties(
+			device, 
+			&queueFamilyCount, 
+			queueFamilies.data());
+
+		int i = 0;
+		for(const auto& queueFamily: queueFamilies)
+		{
+			if(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+				to_ret.graphicsFamily = i;
+			i++;
+		}
+
+		return to_ret;
+	}
+
+	void createLogicalDevice()
+	{
+		auto indices = findQueueFamilies(physicalDevice);
+
+		VkDeviceQueueCreateInfo deviceQueueCreateInfo {};
+		deviceQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		deviceQueueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value_or(0);
+		deviceQueueCreateInfo.queueCount = 1;
+		float queuePriorities = 1.f;
+		deviceQueueCreateInfo.pQueuePriorities = &queuePriorities;
+
+		VkPhysicalDeviceFeatures physicalDeviceFeatures{};
+
+		VkDeviceCreateInfo deviceCreateInfo {};
+		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
+		deviceCreateInfo.queueCreateInfoCount = 1;
+		deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
+		deviceCreateInfo.enabledExtensionCount = 0;
+
+		if (USE_VALIDATION_LAYERS) {
+			deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+			deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
+		}
+		else {
+			deviceCreateInfo.enabledLayerCount = 0;
+		}
+
+		if(vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device) != VK_SUCCESS )
+		{
+			throw graphic_exception("failed to create logical device", -1);
+		}
+
+		vkGetDeviceQueue(device, indices.graphicsFamily.value_or(0), 0, &graphicsQueue);
+	}
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		// The first parameter specifies the severity of the message.
@@ -179,12 +302,16 @@ private:
 	}
 
 private:
-	WindowPtr window;
+	GLFWwindow* window;
 	// Connecting between application and libVulkan. To init it
 	// we need to get it information about out app
 	VkInstance instance = nullptr;
 
 	VkDebugUtilsMessengerEXT debugMessenger;
+
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+	VkDevice device;
+	VkQueue graphicsQueue;
 
 	// All useful validations collected in VK_LAYER_KHRONOS_validation
 	const std::vector<const char*> validationLayers{
@@ -213,15 +340,16 @@ void Graphics::test()
 }
 
 graphic_exception::graphic_exception(const char* msg, int error_code)
-	: std::exception{ ("%s: %i"_f % msg % error_code).str().c_str() }
+	: std::runtime_error{ (""_f % 1).str().data() }
 	, _error_code{error_code}
 {}
 
 graphic_exception::graphic_exception()
+    : std::runtime_error{""}
 {
 	const char* msg;
 	_error_code = glfwGetError(&msg);
-	std::exception::operator=(std::exception(("%s: %i"_f % msg % _error_code).str().c_str()));
+	std::runtime_error::operator=(std::runtime_error(("%s: %i"_f % msg % _error_code).str().c_str()));
 }
 
 int graphic_exception::get_code() const

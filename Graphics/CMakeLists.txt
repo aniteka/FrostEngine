@@ -5,7 +5,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include/Core/Graphics)
 # Libs:
 link_libraries(Lib)
 find_package(Vulkan REQUIRED)
-find_package(Boost 1.80.0 REQUIRED)
+find_package(Boost  REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 
 add_library(Graphics STATIC 

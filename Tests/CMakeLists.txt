@@ -1,5 +1,4 @@
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-set_property(TARGET Graphics PROPERTY CXX_STANDARD 20)
 
 add_executable(GraphicsTests "graphic.cpp")
 target_link_libraries(GraphicsTests

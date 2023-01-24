@@ -1,16 +1,20 @@
 ﻿project(Lib)
 
-include_directories(${PROJECT_SOURCE_DIR}/include/Core/Lib)
+include_directories(${PROJECT_SOURCE_DIR}/include/Core)
 
 # Libs:
-find_package(Boost 1.80.0 REQUIRED)
+find_package(Boost REQUIRED)
+find_package(Armadillo CONFIG REQUIRED)
 
 add_library(Lib STATIC 
-    "src/Lib.cpp" 
-    "include/Core/Lib/Lib.h" "include/Core/Core.h")
+    "include/Core/Transformable.h"
+     "include/Core/Movable.h" )
 
-set_property(TARGET Lib PROPERTY CXX_STANDARD 20)
+set_property(TARGET Lib PROPERTY CXX_STANDARD 17)
+set_property(TARGET Lib PROPERTY LINKER_LANGUAGE CXX)
 
+target_link_libraries(Lib
+    PUBLIC Boost::boost ${ARMADILLO_LIBRARIES})
 target_include_directories(Lib
     PUBLIC "${Boost_INCLUDE_DIRS}")
 

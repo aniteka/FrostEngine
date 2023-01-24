@@ -2,7 +2,7 @@
 
 project ("FrostEngine")
 
+add_subdirectory ("Lib")
 add_subdirectory ("Graphics")
 add_subdirectory ("Tests")
-add_subdirectory("Lib")
 

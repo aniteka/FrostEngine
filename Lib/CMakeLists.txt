@@ -1,6 +1,6 @@
 ﻿project(Lib)
 
-include_directories(${PROJECT_SOURCE_DIR}/include/Core)
+include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # Libs:
 find_package(Boost REQUIRED)
@@ -10,7 +10,7 @@ add_library(Lib STATIC
     "include/Core/Transformable.h"
      "include/Core/Movable.h" )
 
-set_property(TARGET Lib PROPERTY CXX_STANDARD 17)
+set_property(TARGET Lib PROPERTY CXX_STANDARD 20)
 set_property(TARGET Lib PROPERTY LINKER_LANGUAGE CXX)
 
 target_link_libraries(Lib

@@ -2,17 +2,19 @@
 
 Core::Window::Window(const Info& createInfo)
 {
+	// TODO exceptions 
 	m_renderWindow = glfwCreateWindow(
 		createInfo.width,
 		createInfo.height,
 		createInfo.title.value_or("[Set name]"),
-		createInfo.monitor,
+		createInfo.monitor.value_or(nullptr),
 		createInfo.share.value_or(nullptr));
 }
 
 Core::Window::~Window()
 {
 	glfwDestroyWindow(m_renderWindow);
+	m_renderWindow = nullptr;
 }
 
 int Core::Window::getWidth() const
@@ -77,6 +79,11 @@ void Core::Window::move(int dx, int dy)
 {
 	setXY(getX() + dx,
 		getY() + dy);
+}
+
+bool Core::Window::shouldClose() const
+{
+	return glfwWindowShouldClose(m_renderWindow);
 }
 
 GLFWwindow* Core::Window::getNative()

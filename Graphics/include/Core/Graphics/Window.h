@@ -1,22 +1,24 @@
 #pragma once
 #include <Core/Transformable.h>
 #include <Core/Movable.h>
-#include <GLFW/glfw3.h>
+#include <boost/smart_ptr/intrusive_ref_counter.hpp>
+#include <boost/noncopyable.hpp>
 
 #include <optional>
-#include <boost/noncopyable.hpp>
+#include <GLFW/glfw3.h>
 
 namespace Core
 {
-	class Window
+	class Window final
 		: public virtual Transformable
 		, public virtual Movable
+		, public boost::intrusive_ref_counter<Window>
 		, boost::noncopyable
 	{
 	public:
 		struct Info;
 
-		Window(const Info& createInfo);
+		explicit Window(const Info& createInfo);
 		virtual ~Window();
 		Window(Window&&) noexcept = default;
 		Window& operator=(Window&&) noexcept = default;
@@ -33,8 +35,9 @@ namespace Core
 		void setXY(int x, int y) override;
 		void move(int dx, int dy) override;
 
-		GLFWwindow* getNative();
+		bool shouldClose() const;
 
+		GLFWwindow* getNative();
 	private:
 		GLFWwindow* m_renderWindow;
 	};
@@ -44,7 +47,7 @@ namespace Core
 		int width = 500;
 		int height = 500;
 		std::optional<const char*> title;
-		GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+		std::optional<GLFWmonitor*> monitor;
 		std::optional<GLFWwindow*> share;
 	};
 

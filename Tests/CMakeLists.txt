@@ -8,7 +8,7 @@ find_package(GTest CONFIG REQUIRED)
 
 add_executable(Tests "Tests.cpp" "GraphicsTests.h" "LibTests.h")
 
-set_property(TARGET Tests PROPERTY CXX_STANDARD 17)
+set_property(TARGET Tests PROPERTY CXX_STANDARD 20)
 
 target_link_libraries(Tests
     PUBLIC Graphics 

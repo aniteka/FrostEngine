@@ -1,7 +1,6 @@
 #pragma once
 #include <Core/Transformable.h>
 #include <Core/Movable.h>
-#include <boost/smart_ptr/intrusive_ref_counter.hpp>
 #include <boost/noncopyable.hpp>
 
 #include <optional>
@@ -9,14 +8,15 @@
 
 namespace Core
 {
+	struct WindowInfo;
+
 	class Window final
 		: public virtual Transformable
 		, public virtual Movable
-		, public boost::intrusive_ref_counter<Window>
 		, boost::noncopyable
 	{
 	public:
-		struct Info;
+		using Info = WindowInfo;
 
 		explicit Window(const Info& createInfo);
 		virtual ~Window();
@@ -42,7 +42,7 @@ namespace Core
 		GLFWwindow* m_renderWindow;
 	};
 
-	struct Window::Info
+	struct WindowInfo
 	{
 		int width = 500;
 		int height = 500;

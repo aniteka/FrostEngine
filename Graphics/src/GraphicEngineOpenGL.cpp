@@ -1,13 +1,15 @@
 #include "GraphicEngineOpenGL.h"
+
 #include <exception>
-#include <boost/log/trivial.hpp>
+#include <Core/Graphics/Window.h>
+
+Core::GraphicEngineOpenGL::SelfPtrType Core::GraphicEngineOpenGL::m_self = nullptr;
 
 Core::GraphicEngineOpenGL::GraphicEngineOpenGL(const Info& createInfo)
 {
 	if(!glfwInit())
 	{
 		// TODO exception
-		BOOST_LOG_TRIVIAL(fatal) << "Can't init glfw";
 	}
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, createInfo.major);
@@ -16,22 +18,20 @@ Core::GraphicEngineOpenGL::GraphicEngineOpenGL(const Info& createInfo)
 
 Core::GraphicEngineOpenGL::~GraphicEngineOpenGL()
 {
-	m_window.reset();
+	delete m_window;
 	glfwTerminate();
 }
 
-Core::GraphicEngineOpenGL::WindowPtr Core::GraphicEngineOpenGL::initWindow(Window::Info createInfo)
+Core::GraphicEngineOpenGL::WindowPtrType Core::GraphicEngineOpenGL::initWindow(const WindowInfoType& createInfo)
 {
 	try
 	{
 		m_window = new Window(createInfo);
-		glfwMakeContextCurrent(m_window.get()->getNative());
+		glfwMakeContextCurrent(m_window->getNative());
 	}
 	catch (...)
 	{
-		using namespace boost::log;
 		// TODO exception 
-		BOOST_LOG_TRIVIAL(error) << "Create window exception";
 
 		std::rethrow_exception(std::current_exception());
 	}
@@ -39,12 +39,38 @@ Core::GraphicEngineOpenGL::WindowPtr Core::GraphicEngineOpenGL::initWindow(Windo
 	return m_window;
 }
 
-Core::GraphicEngineOpenGL::WindowPtr Core::GraphicEngineOpenGL::getWindow() const
+Core::GraphicEngineOpenGL::WindowPtrType Core::GraphicEngineOpenGL::getWindow() const
 {
 	return m_window;
+}
+
+void Core::GraphicEngineOpenGL::setErrorCallback(const ErrorCallbackType& callback)
+{
+	glfwSetErrorCallback(callback);
 }
 
 void Core::GraphicEngineOpenGL::update(unsigned dt)
 {
 	glfwPollEvents();
 }
+
+Core::GraphicEngineOpenGL::SelfPtrType Core::GraphicEngineOpenGL::get()
+{
+	// TODO thread save 
+	if(m_self == nullptr)
+	{
+		// TODO exception
+	}
+	return m_self;
+}
+
+Core::GraphicEngineOpenGL::SelfPtrType Core::GraphicEngineOpenGL::get(const GraphicEngineOpenGLInfo& createInfo)
+{
+	// TODO thread save 
+	if(m_self == nullptr)
+	{
+		m_self = new GraphicEngineOpenGL{ createInfo };
+	}
+	return m_self;
+}
+

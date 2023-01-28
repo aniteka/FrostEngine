@@ -1,35 +1,53 @@
 #pragma once
-#include <Core/Graphics/Window.h>
+#include <Core/Graphics/GraphicEngineBase.h>
 #include <boost/noncopyable.hpp>
-#include <atomic>
-
+#include <boost/smart_ptr/intrusive_ref_counter.hpp>
 #include <boost/smart_ptr/intrusive_ptr.hpp>
 
 namespace Core
 {
-	class GraphicEngineOpenGL
-		: boost::noncopyable
-	{
-		using WindowType = Window;
-		using WindowPtr = boost::intrusive_ptr<WindowType>;
-	public:
-		struct Info;
+	class Window;
+	struct WindowInfo;
+	struct GraphicEngineOpenGLInfo;
 
-		explicit GraphicEngineOpenGL(const Info& createInfo);
+	class GraphicEngineOpenGL
+		: public GraphicEngineBase
+		, protected boost::noncopyable
+		, public boost::intrusive_ref_counter<GraphicEngineOpenGL>
+	{
+		using SelfType = GraphicEngineOpenGL;
+		using SelfPtrType = boost::intrusive_ptr<SelfType>;
+		using WindowType = Window;
+		using WindowInfoType = WindowInfo;
+		using WindowPtrType = WindowType*;
+		using ErrorCallbackType = void (*)(int, const char*);
+
+	public:
+		using Info = GraphicEngineOpenGLInfo;
+
+	private: explicit GraphicEngineOpenGL(const Info& createInfo);
+	public:
 		~GraphicEngineOpenGL();
 		GraphicEngineOpenGL(GraphicEngineOpenGL&& other) = default;
 		GraphicEngineOpenGL& operator=(GraphicEngineOpenGL&& other) = default;
 
-		WindowPtr initWindow(Window::Info createInfo);
-		[[nodiscard]] WindowPtr getWindow() const;
+		WindowPtrType initWindow(const WindowInfoType& createInfo);
+		[[nodiscard]] WindowPtrType getWindow() const;
+
+		void setErrorCallback(const ErrorCallbackType& callback);
 
 		void update(unsigned dt);
 
+		static SelfPtrType get();
+		static SelfPtrType get(const GraphicEngineOpenGLInfo& createInfo);
+
 	protected:
-		WindowPtr m_window;
+		WindowPtrType m_window = nullptr;
+
+		static SelfPtrType m_self;
 	};
 
-	struct GraphicEngineOpenGL::Info
+	struct GraphicEngineOpenGLInfo
 	{
 		int major = 2, minor = 0;
 	};

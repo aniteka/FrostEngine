@@ -6,12 +6,11 @@
 
 #define TEST_NAME_GRAPHICS GraphicsTests
 
-
 TEST(TEST_NAME_GRAPHICS, WindowTest)
 {
 	using namespace Core;
-	GraphicEngineOpenGL graphicEngine{{}};
-	auto mainWindow = graphicEngine.initWindow({
+	auto graphicEngine = GraphicEngineOpenGL::get({});
+	auto mainWindow = graphicEngine->initWindow({
 		.width = 500,
 		.height = 600,
 		.title = "Test"});

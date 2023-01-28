@@ -8,7 +8,7 @@ find_package(Armadillo CONFIG REQUIRED)
 
 add_library(Lib STATIC 
     "include/Core/Transformable.h"
-     "include/Core/Movable.h" )
+     "include/Core/Movable.h"  )
 
 set_property(TARGET Lib PROPERTY CXX_STANDARD 20)
 set_property(TARGET Lib PROPERTY LINKER_LANGUAGE CXX)

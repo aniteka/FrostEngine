@@ -7,19 +7,11 @@ Core::GraphicEngineOpenGL::SelfPtrType Core::GraphicEngineOpenGL::m_self = nullp
 
 Core::GraphicEngineOpenGL::GraphicEngineOpenGL(const Info& createInfo)
 {
-	if(!glfwInit())
-	{
-		// TODO exception
-	}
-
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, createInfo.major);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, createInfo.minor);
 }
 
 Core::GraphicEngineOpenGL::~GraphicEngineOpenGL()
 {
 	delete m_window;
-	glfwTerminate();
 }
 
 Core::GraphicEngineOpenGL::WindowPtrType Core::GraphicEngineOpenGL::initWindow(const WindowInfoType& createInfo)
@@ -27,7 +19,6 @@ Core::GraphicEngineOpenGL::WindowPtrType Core::GraphicEngineOpenGL::initWindow(c
 	try
 	{
 		m_window = new Window(createInfo);
-		glfwMakeContextCurrent(m_window->getNative());
 	}
 	catch (...)
 	{
@@ -44,14 +35,8 @@ Core::GraphicEngineOpenGL::WindowPtrType Core::GraphicEngineOpenGL::getWindow() 
 	return m_window;
 }
 
-void Core::GraphicEngineOpenGL::setErrorCallback(const ErrorCallbackType& callback)
-{
-	glfwSetErrorCallback(callback);
-}
-
 void Core::GraphicEngineOpenGL::update(unsigned dt)
 {
-	glfwPollEvents();
 }
 
 Core::GraphicEngineOpenGL::SelfPtrType Core::GraphicEngineOpenGL::get()

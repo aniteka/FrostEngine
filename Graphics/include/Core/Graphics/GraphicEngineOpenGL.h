@@ -34,8 +34,6 @@ namespace Core
 		WindowPtrType initWindow(const WindowInfoType& createInfo);
 		[[nodiscard]] WindowPtrType getWindow() const;
 
-		void setErrorCallback(const ErrorCallbackType& callback);
-
 		void update(unsigned dt);
 
 		static SelfPtrType get();

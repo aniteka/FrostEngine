@@ -6,7 +6,7 @@ enable_testing()
 link_libraries(Graphics)
 find_package(GTest CONFIG REQUIRED)
 
-add_executable(Tests "Tests.cpp" "GraphicsTests.h" "LibTests.h")
+add_executable(Tests WIN32  "Tests.cpp" "GraphicsTests.h" "LibTests.h")
 
 set_property(TARGET Tests PROPERTY CXX_STANDARD 20)
 

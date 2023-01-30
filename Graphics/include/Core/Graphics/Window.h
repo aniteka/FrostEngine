@@ -4,7 +4,12 @@
 #include <boost/noncopyable.hpp>
 
 #include <optional>
-#include <GLFW/glfw3.h>
+#include <Core/Text.h>
+
+#ifdef WIN32
+#pragma comment(lib, "winmm.lib")
+#include <windows.h>
+#endif
 
 namespace Core
 {
@@ -15,6 +20,9 @@ namespace Core
 		, public virtual Movable
 		, boost::noncopyable
 	{
+#ifdef WIN32
+		using NativeWindowType = HWND;
+#endif
 	public:
 		using Info = WindowInfo;
 
@@ -37,18 +45,16 @@ namespace Core
 
 		bool shouldClose() const;
 
-		GLFWwindow* getNative();
+		NativeWindowType getNative();
 	private:
-		GLFWwindow* m_renderWindow;
+		NativeWindowType m_renderWindow = nullptr;
 	};
 
 	struct WindowInfo
 	{
 		int width = 500;
 		int height = 500;
-		std::optional<const char*> title;
-		std::optional<GLFWmonitor*> monitor;
-		std::optional<GLFWwindow*> share;
+		std::optional<const TEXT_TYPE> title;
 	};
 
 }

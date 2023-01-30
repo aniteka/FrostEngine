@@ -1,78 +1,151 @@
-#include <Window.h>
+#include <window.h>
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		return 0;
+	}
+	return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
 
 Core::Window::Window(const Info& createInfo)
 {
-	// TODO exceptions 
-	m_renderWindow = glfwCreateWindow(
-		createInfo.width,
-		createInfo.height,
-		createInfo.title.value_or("[Set name]"),
-		createInfo.monitor.value_or(nullptr),
-		createInfo.share.value_or(nullptr));
+	auto instance = GetModuleHandle(NULL);
+	const TEXT_TYPE CLASS_NAME = TEXT("Sample Window Class");
+
+	WNDCLASSEX wc = { };
+	wc.cbSize = sizeof WNDCLASSEX;
+	wc.lpfnWndProc = WindowProc;
+	wc.hInstance = instance;
+	wc.lpszClassName = CLASS_NAME;
+
+	if(!RegisterClassEx(&wc))
+	{
+		// TODO exceptions
+		std::terminate();
+	}
+
+	m_renderWindow = CreateWindowEx(
+		0,                              
+		CLASS_NAME,                     
+		createInfo.title.value_or(TEXT("[SET NAME]")),
+		WS_OVERLAPPEDWINDOW,            
+		CW_USEDEFAULT, CW_USEDEFAULT, 
+		createInfo.width, createInfo.height,
+		NULL,
+		NULL,  
+		instance,
+		NULL
+	);
+
+	if (m_renderWindow == NULL)
+	{
+		// TODO exceptions
+		std::terminate();
+	}
+
+	ShowWindow(m_renderWindow, SW_SHOW);
 }
 
 Core::Window::~Window()
 {
-	glfwDestroyWindow(m_renderWindow);
+	DestroyWindow(m_renderWindow);
 	m_renderWindow = nullptr;
 }
 
 int Core::Window::getWidth() const
 {
-	int width, height;
-	glfwGetWindowSize(m_renderWindow, &width, &height);
-	return width;
+	RECT rect;
+	if(!GetWindowRect(m_renderWindow, &rect))
+	{
+		// TODO exception
+		std::terminate();
+	}
+	return rect.right - rect.left;
 }
 
 int Core::Window::getHeight() const
 {
-	int width, height;
-	glfwGetWindowSize(m_renderWindow, &width, &height);
-	return height;
+	RECT rect;
+	if(!GetWindowRect(m_renderWindow, &rect))
+	{
+		// TODO exception
+		std::terminate();
+	}
+	return rect.bottom - rect.top;
 }
 
 void Core::Window::setWidth(int width)
 {
-	glfwSetWindowSize(m_renderWindow, width, getHeight());
+	SetWindowPos(m_renderWindow, NULL,
+		getX(), getY(),
+		width, getHeight(),
+		SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void Core::Window::setHeight(int height)
 {
-	glfwSetWindowSize(m_renderWindow, getWidth(), height);
+	SetWindowPos(m_renderWindow, NULL,
+		getX(), getY(),
+		getWidth(), height,
+		SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void Core::Window::resize(int width, int height)
 {
-	glfwSetWindowSize(m_renderWindow, width, height);
+	SetWindowPos(m_renderWindow, NULL,
+		getX(), getY(),
+		width, height,
+		SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 int Core::Window::getX() const
 {
-	int x, y;
-	glfwGetWindowPos(m_renderWindow, &x, &y);
-	return x;
+	RECT rect;
+	if(!GetWindowRect(m_renderWindow, &rect))
+	{
+		// TODO exception
+		std::terminate();
+	}
+	return rect.left;
 }
 
 int Core::Window::getY() const
 {
-	int x, y;
-	glfwGetWindowPos(m_renderWindow, &x, &y);
-	return y;
+	RECT rect;
+	if(!GetWindowRect(m_renderWindow, &rect))
+	{
+		// TODO exception
+		std::terminate();
+	}
+	return rect.top;
 }
 
 void Core::Window::setX(int x)
 {
-	glfwSetWindowPos(m_renderWindow, x, getY());
+	SetWindowPos(m_renderWindow, NULL,
+		x, getY(),
+		0, 0,
+		SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void Core::Window::setY(int y)
 {
-	glfwSetWindowPos(m_renderWindow, getX(), y);
+	SetWindowPos(m_renderWindow, NULL,
+		getX(), y,
+		0, 0,
+		SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void Core::Window::setXY(int x, int y)
 {
-	glfwSetWindowPos(m_renderWindow, x, y);
+	SetWindowPos(m_renderWindow, NULL,
+		x, y,
+		0, 0,
+		SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void Core::Window::move(int dx, int dy)
@@ -83,10 +156,10 @@ void Core::Window::move(int dx, int dy)
 
 bool Core::Window::shouldClose() const
 {
-	return glfwWindowShouldClose(m_renderWindow);
+	return false;
 }
 
-GLFWwindow* Core::Window::getNative()
+Core::Window::NativeWindowType Core::Window::getNative()
 {
 	return m_renderWindow;
 }

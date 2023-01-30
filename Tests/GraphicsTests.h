@@ -13,7 +13,7 @@ TEST(TEST_NAME_GRAPHICS, WindowTest)
 	auto mainWindow = graphicEngine->initWindow({
 		.width = 500,
 		.height = 600,
-		.title = "Test"});
+		.title = TEXT("Test")});
 
 	mainWindow->setXY(1, 2);
 	EXPECT_EQ(mainWindow->getX(), 1);

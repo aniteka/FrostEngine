@@ -5,7 +5,7 @@
 
 Core::GraphicEngineOpenGL::SelfPtrType Core::GraphicEngineOpenGL::m_self = nullptr;
 
-Core::GraphicEngineOpenGL::GraphicEngineOpenGL(const Info& createInfo)
+Core::GraphicEngineOpenGL::GraphicEngineOpenGL([[maybe_unused]]const Info& createInfo)
 {
 }
 
@@ -35,7 +35,7 @@ Core::GraphicEngineOpenGL::WindowPtrType Core::GraphicEngineOpenGL::getWindow() 
 	return m_window;
 }
 
-void Core::GraphicEngineOpenGL::update(unsigned dt)
+void Core::GraphicEngineOpenGL::update([[maybe_unused]]unsigned dt)
 {
 }
 

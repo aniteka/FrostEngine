@@ -14,7 +14,14 @@ add_library(Graphics STATIC
    "src/GraphicEngineOpenGL.cpp" 
    "include/Core/Graphics/GraphicEngineBase.h")
 
-set_property(TARGET Graphics PROPERTY CXX_STANDARD 20)
+set_target_properties(Graphics PROPERTIES 
+    FOLDER "Core"
+    CXX_STANDARD 20)
+if(MSVC)
+  target_compile_options(Graphics PRIVATE /W4 /WX /analyze /guard:cf)
+else()
+  target_compile_options(Graphics PRIVATE -Wall -Wextra -Wpedantic -Werror -fanalyzer)
+endif()
 
 target_link_libraries(Graphics
     PRIVATE Boost::boost Boost::log)
@@ -23,5 +30,3 @@ target_include_directories(Graphics
     PUBLIC "${Lib_SOURCE_DIR}/include"
     PUBLIC "${Boost_INCLUDE_DIRS}")
 
-# Cosmetic:
-set_target_properties(Graphics PROPERTIES FOLDER "Core")

@@ -1,6 +1,5 @@
 #include <window.h>
 
-#include <atomic>
 #include <Core/Exceptions.h>
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -16,9 +15,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 Core::Window::Window(const Info& createInfo)
 {
-	static std::atomic_uint countOfWindows = 0;
+	static unsigned countOfWindows = 0;
+	static std::mutex mutexOfCounter;
 	const auto WINDOW_TITLE = createInfo.title.value_or(TEXT("[SET NAME]"));
+	mutexOfCounter.lock();
 	const auto CLASS_NAME = (StringStreamType{} << WINDOW_TITLE << countOfWindows).str();
+	countOfWindows += 1;
+	mutexOfCounter.unlock();
 
 	auto instance = GetModuleHandle(NULL);
 
@@ -52,7 +55,6 @@ Core::Window::Window(const Info& createInfo)
 		UnregisterClass(CLASS_NAME.c_str(), instance);
 		throw Exceptions::WindowException("Exception while creating window", GetLastError());
 	}
-	countOfWindows += 1;
 
 	// TODO
 	ShowWindow(m_renderWindow, SW_SHOW);
@@ -85,6 +87,7 @@ int Core::Window::getHeight() const
 
 void Core::Window::setWidth(int width)
 {
+	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow, NULL,
 		getX(), getY(),
 		width, getHeight(),
@@ -93,6 +96,7 @@ void Core::Window::setWidth(int width)
 
 void Core::Window::setHeight(int height)
 {
+	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow, NULL,
 		getX(), getY(),
 		getWidth(), height,
@@ -101,6 +105,7 @@ void Core::Window::setHeight(int height)
 
 void Core::Window::resize(int width, int height)
 {
+	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow, NULL,
 		getX(), getY(),
 		width, height,
@@ -125,6 +130,7 @@ int Core::Window::getY() const
 
 void Core::Window::setX(int x)
 {
+	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow, NULL,
 		x, getY(),
 		0, 0,
@@ -133,6 +139,7 @@ void Core::Window::setX(int x)
 
 void Core::Window::setY(int y)
 {
+	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow, NULL,
 		getX(), y,
 		0, 0,
@@ -141,6 +148,7 @@ void Core::Window::setY(int y)
 
 void Core::Window::setXY(int x, int y)
 {
+	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow, NULL,
 		x, y,
 		0, 0,
@@ -149,6 +157,7 @@ void Core::Window::setXY(int x, int y)
 
 void Core::Window::move(int dx, int dy)
 {
+	std::scoped_lock _(m_windowMutex);
 	setXY(getX() + dx,
 		getY() + dy);
 }

@@ -4,6 +4,7 @@
 #include <boost/noncopyable.hpp>
 
 #include <optional>
+#include <mutex>
 #include <Core/Text.h>
 
 #ifdef WIN32
@@ -48,6 +49,7 @@ namespace Core
 		NativeWindowType getNative();
 	private:
 		NativeWindowType m_renderWindow = nullptr;
+		mutable std::recursive_mutex m_windowMutex;
 	};
 
 	struct WindowInfo

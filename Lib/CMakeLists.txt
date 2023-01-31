@@ -8,7 +8,9 @@ find_package(Armadillo CONFIG REQUIRED)
 
 add_library(Lib STATIC 
     "include/Core/Transformable.h"
-     "include/Core/Movable.h"   "include/Core/Text.h")
+     "include/Core/Movable.h"   
+     "include/Core/Text.h" 
+     "include/Core/Exceptions.h")
 
 set_target_properties(Lib PROPERTIES 
     CXX_STANDARD 20

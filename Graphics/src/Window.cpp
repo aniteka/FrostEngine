@@ -1,5 +1,8 @@
 #include <window.h>
 
+#include <atomic>
+#include <Core/Exceptions.h>
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch (uMsg)
@@ -13,41 +16,49 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 Core::Window::Window(const Info& createInfo)
 {
+	static std::atomic_uint countOfWindows = 0;
+	const auto WINDOW_TITLE = createInfo.title.value_or(TEXT("[SET NAME]"));
+	const auto CLASS_NAME = (StringStreamType{} << WINDOW_TITLE << countOfWindows).str();
+
 	auto instance = GetModuleHandle(NULL);
-	const TEXT_TYPE CLASS_NAME = TEXT("Sample Window Class");
 
 	WNDCLASSEX wc = { };
 	wc.cbSize = sizeof WNDCLASSEX;
 	wc.lpfnWndProc = WindowProc;
 	wc.hInstance = instance;
-	wc.lpszClassName = CLASS_NAME;
+	wc.lpszClassName = CLASS_NAME.c_str();
 
 	if(!RegisterClassEx(&wc))
 	{
-		// TODO exceptions
-		std::terminate();
+		UnregisterClass(CLASS_NAME.c_str(), instance);
+		throw Exceptions::WindowException("Class register exception", GetLastError());
 	}
 
 	m_renderWindow = CreateWindowEx(
 		0,                              
-		CLASS_NAME,                     
-		createInfo.title.value_or(TEXT("[SET NAME]")),
+		CLASS_NAME.c_str(),                     
+		WINDOW_TITLE,
 		WS_OVERLAPPEDWINDOW,            
 		CW_USEDEFAULT, CW_USEDEFAULT, 
 		createInfo.width, createInfo.height,
-		NULL,
-		NULL,  
+		nullptr,
+		nullptr,  
 		instance,
-		NULL
+		nullptr	
 	);
 
-	if (m_renderWindow == NULL)
+	if (m_renderWindow == nullptr)
 	{
-		// TODO exceptions
-		std::terminate();
+		UnregisterClass(CLASS_NAME.c_str(), instance);
+		throw Exceptions::WindowException("Exception while creating window", GetLastError());
 	}
+	countOfWindows += 1;
 
+	// TODO
 	ShowWindow(m_renderWindow, SW_SHOW);
+	UpdateWindow(m_renderWindow);
+	SetFocus(m_renderWindow);
+	SetForegroundWindow(m_renderWindow);
 }
 
 Core::Window::~Window()
@@ -59,22 +70,16 @@ Core::Window::~Window()
 int Core::Window::getWidth() const
 {
 	RECT rect;
-	if(!GetWindowRect(m_renderWindow, &rect))
-	{
-		// TODO exception
-		std::terminate();
-	}
+	if (!GetWindowRect(m_renderWindow, &rect))
+		throw Exceptions::WindowException("Exception while getting window rect");
 	return rect.right - rect.left;
 }
 
 int Core::Window::getHeight() const
 {
 	RECT rect;
-	if(!GetWindowRect(m_renderWindow, &rect))
-	{
-		// TODO exception
-		std::terminate();
-	}
+	if (!GetWindowRect(m_renderWindow, &rect))
+		throw Exceptions::WindowException("Exception while getting window rect");
 	return rect.bottom - rect.top;
 }
 
@@ -105,22 +110,16 @@ void Core::Window::resize(int width, int height)
 int Core::Window::getX() const
 {
 	RECT rect;
-	if(!GetWindowRect(m_renderWindow, &rect))
-	{
-		// TODO exception
-		std::terminate();
-	}
+	if (!GetWindowRect(m_renderWindow, &rect))
+		throw Exceptions::WindowException("Exception while getting window rect");
 	return rect.left;
 }
 
 int Core::Window::getY() const
 {
 	RECT rect;
-	if(!GetWindowRect(m_renderWindow, &rect))
-	{
-		// TODO exception
-		std::terminate();
-	}
+	if (!GetWindowRect(m_renderWindow, &rect))
+		throw Exceptions::WindowException("Exception while getting window rect");
 	return rect.top;
 }
 
@@ -156,6 +155,7 @@ void Core::Window::move(int dx, int dy)
 
 bool Core::Window::shouldClose() const
 {
+	// TODO
 	return false;
 }
 
@@ -163,3 +163,4 @@ Core::Window::NativeWindowType Core::Window::getNative()
 {
 	return m_renderWindow;
 }
+

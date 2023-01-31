@@ -1,6 +1,6 @@
 #include "GraphicEngineOpenGL.h"
 
-#include <exception>
+#include <Core/Exceptions.h>
 #include <Core/Graphics/Window.h>
 
 Core::GraphicEngineOpenGL::SelfPtrType Core::GraphicEngineOpenGL::m_self = nullptr;
@@ -23,7 +23,6 @@ Core::GraphicEngineOpenGL::WindowPtrType Core::GraphicEngineOpenGL::initWindow(c
 	catch (...)
 	{
 		// TODO exception 
-
 		std::rethrow_exception(std::current_exception());
 	}
 

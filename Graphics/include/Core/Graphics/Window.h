@@ -22,7 +22,11 @@ namespace Core
 		, boost::noncopyable
 	{
 #ifdef WIN32
-		using NativeWindowType = HWND;
+		using NativeWindowType = HWND__;
+		struct NativeDeleter{void operator()(NativeWindowType* toDel){DestroyWindow(toDel);}};
+		using NativeWindowPtrType = std::unique_ptr <
+			NativeWindowType,
+			NativeDeleter> ;
 #endif
 	public:
 		using Info = WindowInfo;
@@ -46,10 +50,14 @@ namespace Core
 
 		bool shouldClose() const;
 
-		NativeWindowType getNative();
-	private:
-		NativeWindowType m_renderWindow = nullptr;
+		[[deprecated]]NativeWindowType* getNative();
+	protected:
+		NativeWindowPtrType m_renderWindow = nullptr;
 		mutable std::recursive_mutex m_windowMutex;
+
+	private:
+		void _createAndRegisterWindowClass(const TEXT_TYPE CLASS_NAME, const Info& createInfo);
+		void _createWindow(const TEXT_TYPE CLASS_NAME, const TEXT_TYPE WINDOW_TITLE, const Info& createInfo);
 	};
 
 	struct WindowInfo

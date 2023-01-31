@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 #include <Core/Graphics/Window.h>
 #include <Core/Graphics/GraphicEngineOpenGL.h>
+#include <Core/Exceptions.h>
 
 #define TEST_NAME_GRAPHICS GraphicsTests
 
@@ -12,7 +13,7 @@ TEST(TEST_NAME_GRAPHICS, WindowTest)
 	auto mainWindow = Window({
 		.width = 500,
 		.height = 600,
-		.title = TEXT("Test")});
+		.title = TEXT("Test") });
 
 	mainWindow.setXY(1, 2);
 	EXPECT_EQ(mainWindow.getX(), 1);
@@ -38,18 +39,5 @@ TEST(TEST_NAME_GRAPHICS, WindowTest)
 	mainWindow.setHeight(1100);
 	EXPECT_EQ(mainWindow.getWidth(), 1000);
 	EXPECT_EQ(mainWindow.getHeight(), 1100);
-
-	MSG msg;
-	ZeroMemory(&msg, sizeof(MSG));
-
-	while(true)
-	{
-		if(PeekMessage(&msg, mainWindow.getNative(), NULL, NULL, PM_REMOVE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-	}
 }
-
 

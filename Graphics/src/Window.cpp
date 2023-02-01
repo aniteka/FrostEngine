@@ -137,7 +137,7 @@ bool Core::Window::shouldClose() const
 
 Core::Window::NativeWindowType* Core::Window::getNative()
 {
-	return m_renderWindow.release();
+	return m_renderWindow.get();
 }
 
 void Core::Window::_createAndRegisterWindowClass(const TEXT_TYPE CLASS_NAME, [[maybe_unused]]const Core::Window::Info& createInfo)

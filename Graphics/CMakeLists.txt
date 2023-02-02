@@ -10,9 +10,9 @@ find_package(Boost COMPONENTS log REQUIRED)
 add_library(Graphics STATIC 
    "include/Core/Graphics/Window.h"
    "src/Window.cpp" 
-   "include/Core/Graphics/GraphicEngineOpenGL.h" 
-   "src/GraphicEngineOpenGL.cpp" 
-   "include/Core/Graphics/GraphicEngineBase.h")
+   "include/Core/Graphics/GraphicEngineBase.h" 
+   "include/Core/Graphics/GraphicEngineDirectX.h" 
+   "src/GraphicEngineDirectX.cpp")
 
 set_target_properties(Graphics PROPERTIES 
     FOLDER "Core"

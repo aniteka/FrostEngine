@@ -7,10 +7,8 @@
 #include <mutex>
 #include <Core/Text.h>
 
-#ifdef WIN32
 #pragma comment(lib, "winmm.lib")
 #include <windows.h>
-#endif
 
 namespace Core
 {
@@ -21,13 +19,11 @@ namespace Core
 		, public virtual Movable
 		, boost::noncopyable
 	{
-#ifdef WIN32
 		using NativeWindowType = HWND__;
 		struct NativeDeleter{void operator()(NativeWindowType* toDel){DestroyWindow(toDel);}};
 		using NativeWindowPtrType = std::unique_ptr <
 			NativeWindowType,
 			NativeDeleter> ;
-#endif
 	public:
 		using Info = WindowInfo;
 

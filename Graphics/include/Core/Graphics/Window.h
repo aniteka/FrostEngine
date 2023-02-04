@@ -47,6 +47,7 @@ namespace Core
 		bool shouldClose() const;
 
 		[[deprecated]]NativeWindowType* getNative();
+
 	protected:
 		NativeWindowPtrType m_renderWindow = nullptr;
 		mutable std::recursive_mutex m_windowMutex;
@@ -54,6 +55,7 @@ namespace Core
 	private:
 		void _createAndRegisterWindowClass(const TEXT_TYPE CLASS_NAME, const Info& createInfo);
 		void _createWindow(const TEXT_TYPE CLASS_NAME, const TEXT_TYPE WINDOW_TITLE, const Info& createInfo);
+		static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 	};
 
 	struct WindowInfo

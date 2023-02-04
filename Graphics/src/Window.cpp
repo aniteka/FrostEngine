@@ -2,8 +2,22 @@
 
 #include <Core/Exceptions.h>
 
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+#include <iostream>
+
+LRESULT Core::Window::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	using namespace Core;
+	Window* self = nullptr;
+
+	if (uMsg == WM_NCCREATE)
+	{
+		auto pCreate = reinterpret_cast<CREATESTRUCT*>(lParam);
+		self = static_cast<Window*>(pCreate->lpCreateParams);
+		SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
+	}
+	else
+		self = reinterpret_cast<Window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+
 	switch (uMsg)
 	{
 	case WM_DESTROY:
@@ -181,7 +195,7 @@ void Core::Window::_createWindow(const TEXT_TYPE CLASS_NAME, const TEXT_TYPE WIN
 		nullptr,
 		nullptr,  
 		instance,
-		nullptr	
+		this	
 	));
 
 	if (!m_renderWindow)

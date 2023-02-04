@@ -48,55 +48,13 @@ TEST(TEST_NAME_GRAPHICS, WindowTest)
 	mainWindow.setHeight(1100);
 	EXPECT_EQ(mainWindow.getWidth(), 1000);
 	EXPECT_EQ(mainWindow.getHeight(), 1100);
-}
 
-using namespace Microsoft::WRL;
-_Use_decl_annotations_
-void GetHardwareAdapter(IDXGIFactory1* pFactory,
-						IDXGIAdapter1** ppAdapter,
-						bool requestHighPerformanceAdapter)
-{
-	*ppAdapter = nullptr;
-	ComPtr<IDXGIAdapter1> adapter;
-
-	ComPtr<IDXGIFactory6> factory6;
-	if(SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory6))))
+	MSG msg = { };
+	while (GetMessage(&msg, mainWindow.getNative(), 0, 0) > 0)
 	{
-		for (
-			UINT adapterIndex = 0;
-			SUCCEEDED(factory6->EnumAdapterByGpuPreference(
-				adapterIndex,
-				requestHighPerformanceAdapter ? DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE : DXGI_GPU_PREFERENCE_UNSPECIFIED,
-				IID_PPV_ARGS(&adapter)));
-			++adapterIndex)
-		{
-			DXGI_ADAPTER_DESC1 desc;
-			adapter->GetDesc1(&desc);
-
-			if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) 
-				continue;
-			
-			if(SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
-				break;
-		}
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 	}
-
-	if(adapter.Get() == nullptr)
-	{
-		for(UINT adapterIndex = 0; SUCCEEDED(pFactory->EnumAdapters1(adapterIndex, &adapter)); ++adapterIndex)
-		{
-			DXGI_ADAPTER_DESC1 desc;
-			adapter->GetDesc1(&desc);
-
-			if(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
-				continue;
-
-			if(SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
-				break;
-		}
-	}
-
-	*ppAdapter = adapter.Detach();
 }
 
 TEST(TEST_NAME_GRAPHICS, GraphicsTest)

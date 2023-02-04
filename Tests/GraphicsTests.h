@@ -1,22 +1,12 @@
 #pragma once
 
-#include <gtest/gtest.h>
+#include <boost/test/unit_test.hpp>
 #include <Core/Graphics/Window.h>
 #include <Core/Exceptions.h>
 
-#pragma comment (lib, "d3d12.lib")
-#include <d3d12.h>
-#include <Windows.h>
-#include <dxgi1_6.h>
-#include <d3dcompiler.h>
-#include <DirectXMath.h>
-#include <string>
-#include <wrl.h>
-#include <shellapi.h>
+BOOST_AUTO_TEST_SUITE(GraphicsTests)
 
-#define TEST_NAME_GRAPHICS GraphicsTests
-
-TEST(TEST_NAME_GRAPHICS, WindowTest)
+BOOST_AUTO_TEST_CASE(WindowTest)
 {
 	using namespace Core;
 	auto mainWindow = Window({
@@ -25,40 +15,37 @@ TEST(TEST_NAME_GRAPHICS, WindowTest)
 		.title = TEXT("Test") });
 
 	mainWindow.setXY(1, 2);
-	EXPECT_EQ(mainWindow.getX(), 1);
-	EXPECT_EQ(mainWindow.getY(), 2);
+	BOOST_CHECK_EQUAL(mainWindow.getX(), 1);
+	BOOST_CHECK_EQUAL(mainWindow.getY(), 2);
 
 	mainWindow.move(100, 200);
-	EXPECT_EQ(mainWindow.getX(), 101);
-	EXPECT_EQ(mainWindow.getY(), 202);
+	BOOST_CHECK_EQUAL(mainWindow.getX(), 101);
+	BOOST_CHECK_EQUAL(mainWindow.getY(), 202);
 
 	mainWindow.setX(10);
 	mainWindow.setY(20);
-	EXPECT_EQ(mainWindow.getX(), 10);
-	EXPECT_EQ(mainWindow.getY(), 20);
+	BOOST_CHECK_EQUAL(mainWindow.getX(), 10);
+	BOOST_CHECK_EQUAL(mainWindow.getY(), 20);
 
-	EXPECT_EQ(mainWindow.getWidth(), 500);
-	EXPECT_EQ(mainWindow.getHeight(), 600);
+	BOOST_CHECK_EQUAL(mainWindow.getWidth(), 500);
+	BOOST_CHECK_EQUAL(mainWindow.getHeight(), 600);
 
 	mainWindow.resize(200, 300);
-	EXPECT_EQ(mainWindow.getWidth(), 200);
-	EXPECT_EQ(mainWindow.getHeight(), 300);
+	BOOST_CHECK_EQUAL(mainWindow.getWidth(), 200);
+	BOOST_CHECK_EQUAL(mainWindow.getHeight(), 300);
 
 	mainWindow.setWidth(1000);
 	mainWindow.setHeight(1100);
-	EXPECT_EQ(mainWindow.getWidth(), 1000);
-	EXPECT_EQ(mainWindow.getHeight(), 1100);
+	BOOST_CHECK_EQUAL(mainWindow.getWidth(), 1000);
+	BOOST_CHECK_EQUAL(mainWindow.getHeight(), 1100);
 
-	MSG msg = { };
-	while (GetMessage(&msg, mainWindow.getNative(), 0, 0) > 0)
-	{
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
-	}
+	//MSG msg = { };
+	//while (GetMessage(&msg, mainWindow.getNative(), 0, 0) > 0)
+	//{
+	//	TranslateMessage(&msg);
+	//	DispatchMessage(&msg);
+	//}
 }
 
-TEST(TEST_NAME_GRAPHICS, GraphicsTest)
-{
-	
-}
+BOOST_AUTO_TEST_SUITE_END()
 

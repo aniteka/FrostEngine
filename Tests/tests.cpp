@@ -1,12 +1,4 @@
-#include <gtest/gtest.h>
-
+#define BOOST_TEST_MAIN
+#define BOOST_TEST_DYN_LINK
 #include "GraphicsTests.h"
-#include "LibTests.h"
-
-int main(int argc, char* argv[])
-{
-	::testing::InitGoogleTest();
-
-	return RUN_ALL_TESTS();
-}
 

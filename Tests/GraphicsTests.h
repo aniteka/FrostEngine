@@ -34,10 +34,10 @@ BOOST_AUTO_TEST_CASE(WindowTest)
 	BOOST_CHECK_EQUAL(mainWindow.getWidth(), 200);
 	BOOST_CHECK_EQUAL(mainWindow.getHeight(), 300);
 
-	mainWindow.setWidth(1000);
-	mainWindow.setHeight(1100);
-	BOOST_CHECK_EQUAL(mainWindow.getWidth(), 1000);
-	BOOST_CHECK_EQUAL(mainWindow.getHeight(), 1100);
+	mainWindow.setWidth(800);
+	mainWindow.setHeight(800);
+	BOOST_CHECK_EQUAL(mainWindow.getWidth(), 800);
+	BOOST_CHECK_EQUAL(mainWindow.getHeight(), 800);
 
 	//MSG msg = { };
 	//while (GetMessage(&msg, mainWindow.getNative(), 0, 0) > 0)

@@ -2,8 +2,6 @@
 
 #include <Core/Exceptions.h>
 
-#include <iostream>
-
 LRESULT Core::Window::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	using namespace Core;

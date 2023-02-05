@@ -1,29 +1,30 @@
 ﻿project(Lib)
 
-include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_SOURCE_DIR}/include/Core)
 
 # Libs:
-find_package(Boost REQUIRED)
+set (Boost_USE_STATIC_LIBS ON)
+find_package(Boost 1.80.0 COMPONENTS    system 
+                                        filesystem 
+                                        unit_test_framework 
+                                        REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 find_package(Armadillo CONFIG REQUIRED)
 
-add_library(Lib STATIC 
+add_library(Lib INTERFACE 
     "include/Core/Transformable.h"
-     "include/Core/Movable.h"   
-     "include/Core/Text.h" 
-     "include/Core/Exceptions.h")
+    "include/Core/Movable.h"   
+    "include/Core/Text.h" 
+    "include/Core/Exceptions.h"  
+    "include/Core/Log.h")
 
 set_target_properties(Lib PROPERTIES 
     CXX_STANDARD 20
     LINKER_LANGUAGE CXX
     FOLDER "Core")
-if(MSVC)
-  target_compile_options(Lib PRIVATE /W4 /WX /analyze /guard:cf)
-else()
-  target_compile_options(Lib PRIVATE -Wall -Wextra -Wpedantic -Werror -fanalyzer)
-endif()
 
 target_link_libraries(Lib
-    PUBLIC Boost::boost ${ARMADILLO_LIBRARIES})
+    INTERFACE ${Boost_LIBRARIES} ${ARMADILLO_LIBRARIES} spdlog::spdlog spdlog::spdlog_header_only)
 target_include_directories(Lib
-    PUBLIC "${Boost_INCLUDE_DIRS}")
+    INTERFACE "${Boost_INCLUDE_DIRS}")
 

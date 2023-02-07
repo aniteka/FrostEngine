@@ -53,8 +53,8 @@ namespace core
 		mutable std::recursive_mutex m_windowMutex;
 
 	private:
-		void create_and_register_window_class(const ctext_t CLASS_NAME, const info_t& createInfo);
-		void create_window(const ctext_t CLASS_NAME, const ctext_t WINDOW_TITLE, const info_t& createInfo);
+		void create_and_register_window_class(ctext_t CLASS_NAME, const info_t& createInfo);
+		void create_window(ctext_t CLASS_NAME, ctext_t WINDOW_TITLE, const info_t& createInfo);
 		static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 	};
 
@@ -62,7 +62,7 @@ namespace core
 	{
 		int width = 500;
 		int height = 500;
-		std::optional<const ctext_t> title;
+		std::optional<ctext_t> title;
 	};
 
 }

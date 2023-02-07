@@ -152,7 +152,7 @@ core::window::native_window_t* core::window::get_native()
 	return m_renderWindow.get();
 }
 
-void core::window::create_and_register_window_class(const ctext_t CLASS_NAME, [[maybe_unused]]const core::window::info_t& createInfo)
+void core::window::create_and_register_window_class(ctext_t CLASS_NAME, [[maybe_unused]]const core::window::info_t& createInfo)
 {
 	auto instance = GetModuleHandle(NULL);
 	WNDCLASSEX wc = { };
@@ -179,7 +179,7 @@ void core::window::create_and_register_window_class(const ctext_t CLASS_NAME, [[
 	}
 }
 
-void core::window::create_window(const ctext_t CLASS_NAME, const ctext_t WINDOW_TITLE, const info_t& createInfo)
+void core::window::create_window(ctext_t CLASS_NAME, ctext_t WINDOW_TITLE, const info_t& createInfo)
 {
 	auto instance = GetModuleHandle(NULL);
 

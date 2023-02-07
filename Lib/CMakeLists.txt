@@ -10,6 +10,7 @@ find_package(Boost 1.80.0 COMPONENTS    system
                                         REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(Armadillo CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 
 add_library(Lib INTERFACE 
     "include/Core/Transformable.h"
@@ -24,7 +25,7 @@ set_target_properties(Lib PROPERTIES
     FOLDER "Core")
 
 target_link_libraries(Lib
-    INTERFACE ${Boost_LIBRARIES} ${ARMADILLO_LIBRARIES} spdlog::spdlog spdlog::spdlog_header_only)
+    INTERFACE ${Boost_LIBRARIES} ${ARMADILLO_LIBRARIES} spdlog::spdlog spdlog::spdlog_header_only fmt::fmt)
 target_include_directories(Lib
     INTERFACE "${Boost_INCLUDE_DIRS}")
 

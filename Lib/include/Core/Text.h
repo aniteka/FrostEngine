@@ -5,7 +5,6 @@
 
 #include <string>
 #include <sstream>
-#include <boost/format.hpp>
 
 #define TEXT(str) L##str
 #define CHAR_TYPE wchar_t
@@ -16,7 +15,6 @@ namespace Core
 	using StringStreamType = std::basic_stringstream<CHAR_TYPE, std::char_traits<CHAR_TYPE>, std::allocator<CHAR_TYPE>>;
 	using StringIStreamType = std::basic_istringstream<CHAR_TYPE, std::char_traits<CHAR_TYPE>, std::allocator<CHAR_TYPE>>;
 	using StringOStreamType = std::basic_ostringstream<CHAR_TYPE, std::char_traits<CHAR_TYPE>, std::allocator<CHAR_TYPE>>;
-	using Format = boost::basic_format<CHAR_TYPE>;
 }
 
 

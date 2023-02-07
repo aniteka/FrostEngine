@@ -1,15 +1,15 @@
 #pragma once
 
-namespace Core
+namespace core
 {
-	class Movable
+	class movable
 	{
 	public:
-		[[nodiscard]] virtual int getX() const = 0;
-		[[nodiscard]] virtual int getY() const = 0;
-		virtual void setX(int x) = 0;
-		virtual void setY(int y) = 0;
-		virtual void setXY(int x, int y) = 0;
+		[[nodiscard]] virtual int get_x() const = 0;
+		[[nodiscard]] virtual int get_y() const = 0;
+		virtual void set_x(int x) = 0;
+		virtual void set_y(int y) = 0;
+		virtual void set_xy(int x, int y) = 0;
 		virtual void move(int dx, int dy) = 0;
 	};
 }

@@ -1,68 +1,68 @@
 #pragma once
-#include <Core/Transformable.h>
-#include <Core/Movable.h>
+#include <core/transformable.h>
+#include <core/movable.h>
 #include <boost/noncopyable.hpp>
 
 #include <optional>
 #include <mutex>
-#include <Core/Text.h>
+#include <core/text.h>
 
 #pragma comment(lib, "winmm.lib")
 #include <windows.h>
 
-namespace Core
+namespace core
 {
-	struct WindowInfo;
+	struct window_info;
 
-	class Window final
-		: public virtual Transformable
-		, public virtual Movable
+	class window final
+		: public virtual transformable
+		, public virtual movable
 		, boost::noncopyable
 	{
-		using NativeWindowType = HWND__;
-		struct NativeDeleter{void operator()(NativeWindowType* toDel){DestroyWindow(toDel);}};
-		using NativeWindowPtrType = std::unique_ptr <
-			NativeWindowType,
-			NativeDeleter> ;
+		using native_window_t = HWND__;
+		struct native_deleter{void operator()(native_window_t* toDel){DestroyWindow(toDel);}};
+		using native_window_ptr_t = std::unique_ptr <
+			native_window_t,
+			native_deleter> ;
 	public:
-		using Info = WindowInfo;
+		using info_t = window_info;
 
-		explicit Window(const Info& createInfo);
-		virtual ~Window();
-		Window(Window&&) noexcept = default;
-		Window& operator=(Window&&) noexcept = default;
+		explicit window(const info_t& createInfo);
+		virtual ~window();
+		window(window&&) noexcept = default;
+		window& operator=(window&&) noexcept = default;
 
-		[[nodiscard]] int getWidth() const override;
-		[[nodiscard]] int getHeight() const override;
-		void setWidth(int width) override;
-		void setHeight(int height) override;
+		[[nodiscard]] int get_width() const override;
+		[[nodiscard]] int get_height() const override;
+		void set_width(int width) override;
+		void set_height(int height) override;
 		void resize(int width, int height) override;
-		[[nodiscard]] int getX() const override;
-		[[nodiscard]] int getY() const override;
-		void setX(int x) override;
-		void setY(int y) override;
-		void setXY(int x, int y) override;
+		[[nodiscard]] int get_x() const override;
+		[[nodiscard]] int get_y() const override;
+		void set_x(int x) override;
+		void set_y(int y) override;
+		void set_xy(int x, int y) override;
 		void move(int dx, int dy) override;
 
-		bool shouldClose() const;
+		bool should_close() const;
 
-		[[deprecated]]NativeWindowType* getNative();
+		[[deprecated]]native_window_t* get_native();
 
 	protected:
-		NativeWindowPtrType m_renderWindow = nullptr;
+		native_window_ptr_t m_renderWindow = nullptr;
 		mutable std::recursive_mutex m_windowMutex;
 
 	private:
-		void _createAndRegisterWindowClass(const TEXT_TYPE CLASS_NAME, const Info& createInfo);
-		void _createWindow(const TEXT_TYPE CLASS_NAME, const TEXT_TYPE WINDOW_TITLE, const Info& createInfo);
+		void create_and_register_window_class(const ctext_t CLASS_NAME, const info_t& createInfo);
+		void create_window(const ctext_t CLASS_NAME, const ctext_t WINDOW_TITLE, const info_t& createInfo);
 		static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 	};
 
-	struct WindowInfo
+	struct window_info
 	{
 		int width = 500;
 		int height = 500;
-		std::optional<const TEXT_TYPE> title;
+		std::optional<const ctext_t> title;
 	};
 
 }

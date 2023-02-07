@@ -13,11 +13,11 @@ find_package(Armadillo CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 
 add_library(Lib INTERFACE 
-    "include/Core/Transformable.h"
-    "include/Core/Movable.h"   
-    "include/Core/Text.h" 
-    "include/Core/Exceptions.h"  
-    "include/Core/Log.h")
+    "include/core/transformable.h"
+    "include/core/movable.h"   
+    "include/core/text.h" 
+    "include/core/exceptions.h"  
+    "include/core/log.h")
 
 set_target_properties(Lib PROPERTIES 
     CXX_STANDARD 20

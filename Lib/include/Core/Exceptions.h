@@ -1,19 +1,19 @@
 #pragma once
 #include <stdexcept>
-#include <fmt/core.h>
+#include <core/text.h>
 
-namespace Core::Exceptions
+namespace core::exceptions
 {
-	class WindowException : public std::runtime_error
+	class window_exception : public std::runtime_error
 	{
-		using BaseType = std::runtime_error;
+		using base_t = std::runtime_error;
 	public:
-		using BaseType::runtime_error;
-		WindowException(const char* str, unsigned errorCode)
-			: BaseType( fmt::format("{}: {}", str, errorCode) )
+		using base_t::runtime_error;
+		window_exception(const char* str, unsigned errorCode)
+			: base_t( fmt::format("{}: {}", str, errorCode) )
 		{}
-		WindowException(const std::string& str, unsigned errorCode)
-			: BaseType( fmt::format("{}: {}", str, errorCode) )
+		window_exception(const std::string& str, unsigned errorCode)
+			: base_t( fmt::format("{}: {}", str, errorCode) )
 		{}
 	};
 }

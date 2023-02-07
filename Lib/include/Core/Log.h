@@ -7,15 +7,15 @@
 #define CREATE_LOGGER(loggerName) \
 	static auto loggerName = Core::Log::default_logger()->clone(#loggerName)
 
-namespace Core::Log
+namespace core::log
 {
 	using namespace spdlog;
 	namespace _defaultInit
 	{
-		class LogInit
+		class log_init
 		{
 		public:
-			LogInit()
+			log_init()
 			{
 				std::vector<sink_ptr> sinks;
 				sinks.push_back(std::make_shared<sinks::stdout_color_sink_mt>());
@@ -24,7 +24,7 @@ namespace Core::Log
 				set_default_logger(logger);
 			}
 		};
-		static LogInit _init{};
+		static log_init _init{};
 	}
 }
 

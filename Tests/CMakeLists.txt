@@ -11,7 +11,7 @@ find_package(Boost 1.80.0 COMPONENTS    system
                                         REQUIRED)
 include_directories (${Boost_INCLUDE_DIRS})
 
-add_executable(Tests "Tests.cpp" "GraphicsTests.h" )
+add_executable(Tests "tests.cpp" "graphics_tests.h" )
 
 set_property(TARGET Tests PROPERTY CXX_STANDARD 20)
 

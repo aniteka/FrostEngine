@@ -1,20 +1,20 @@
-#include <Window.h>
+#include <window.h>
 
-#include <Core/Exceptions.h>
+#include <core/exceptions.h>
 
-LRESULT Core::Window::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+LRESULT core::window::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	using namespace Core;
-	Window* self = nullptr;
+	using namespace core;
+	window* self = nullptr;
 
 	if (uMsg == WM_NCCREATE)
 	{
 		auto pCreate = reinterpret_cast<CREATESTRUCT*>(lParam);
-		self = static_cast<Window*>(pCreate->lpCreateParams);
+		self = static_cast<window*>(pCreate->lpCreateParams);
 		SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
 	}
 	else
-		self = reinterpret_cast<Window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+		self = reinterpret_cast<window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
 
 	switch (uMsg)
 	{
@@ -25,19 +25,19 @@ LRESULT Core::Window::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-Core::Window::Window(const Info& createInfo)
+core::window::window(const info_t& createInfo)
 {
-	static unsigned countOfWindows = 0;
-	static std::mutex mutexOfCounter;
-	const auto WINDOW_TITLE = createInfo.title.value_or(TEXT("[SET NAME]"));
-	mutexOfCounter.lock();
-	const auto CLASS_NAME = (StringStreamType{} << WINDOW_TITLE << countOfWindows).str();
-	countOfWindows += 1;
-	mutexOfCounter.unlock();
+	static unsigned count_of_windows = 0;
+	static std::mutex mutex_of_counter;
+	const auto WINDOW_TITLE = createInfo.title.value_or(CTEXT("[SET NAME]"));
+	mutex_of_counter.lock();
+	const auto CLASS_NAME = CFORMAT("{}{}", WINDOW_TITLE, count_of_windows);
+	count_of_windows += 1;
+	mutex_of_counter.unlock();
 
-	_createAndRegisterWindowClass(CLASS_NAME.c_str(), createInfo);
+	create_and_register_window_class(CLASS_NAME.c_str(), createInfo);
 
-	_createWindow(CLASS_NAME.c_str(), WINDOW_TITLE, createInfo);
+	create_window(CLASS_NAME.c_str(), WINDOW_TITLE, createInfo);
 
 	// TODO
 	ShowWindow(m_renderWindow.get(), SW_SHOW);
@@ -46,86 +46,86 @@ Core::Window::Window(const Info& createInfo)
 	SetForegroundWindow(m_renderWindow.get());
 }
 
-Core::Window::~Window() = default;
+core::window::~window() = default;
 
-int Core::Window::getWidth() const
+int core::window::get_width() const
 {
 	RECT rect;
 	if (!GetWindowRect(m_renderWindow.get(), &rect))
-		throw Exceptions::WindowException("Exception while getting window rect");
+		throw exceptions::window_exception("Exception while getting window rect");
 	return rect.right - rect.left;
 }
 
-int Core::Window::getHeight() const
+int core::window::get_height() const
 {
 	RECT rect;
 	if (!GetWindowRect(m_renderWindow.get(), &rect))
-		throw Exceptions::WindowException("Exception while getting window rect");
+		throw exceptions::window_exception("Exception while getting window rect");
 	return rect.bottom - rect.top;
 }
 
-void Core::Window::setWidth(int width)
+void core::window::set_width(int width)
 {
 	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow.get(), NULL,
-		getX(), getY(),
-		width, getHeight(),
+		get_x(), get_y(),
+		width, get_height(),
 		SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-void Core::Window::setHeight(int height)
+void core::window::set_height(int height)
 {
 	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow.get(), NULL,
-		getX(), getY(),
-		getWidth(), height,
+		get_x(), get_y(),
+		get_width(), height,
 		SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-void Core::Window::resize(int width, int height)
+void core::window::resize(int width, int height)
 {
 	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow.get(), NULL,
-		getX(), getY(),
+		get_x(), get_y(),
 		width, height,
 		SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-int Core::Window::getX() const
+int core::window::get_x() const
 {
 	RECT rect;
 	if (!GetWindowRect(m_renderWindow.get(), &rect))
-		throw Exceptions::WindowException("Exception while getting window rect");
+		throw exceptions::window_exception("Exception while getting window rect");
 	return rect.left;
 }
 
-int Core::Window::getY() const
+int core::window::get_y() const
 {
 	RECT rect;
 	if (!GetWindowRect(m_renderWindow.get(), &rect))
-		throw Exceptions::WindowException("Exception while getting window rect");
+		throw exceptions::window_exception("Exception while getting window rect");
 	return rect.top;
 }
 
-void Core::Window::setX(int x)
+void core::window::set_x(int x)
 {
 	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow.get(), NULL,
-		x, getY(),
+		x, get_y(),
 		0, 0,
 		SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-void Core::Window::setY(int y)
+void core::window::set_y(int y)
 {
 	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow.get(), NULL,
-		getX(), y,
+		get_x(), y,
 		0, 0,
 		SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-void Core::Window::setXY(int x, int y)
+void core::window::set_xy(int x, int y)
 {
 	std::scoped_lock _(m_windowMutex);
 	SetWindowPos(m_renderWindow.get(), NULL,
@@ -134,25 +134,25 @@ void Core::Window::setXY(int x, int y)
 		SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-void Core::Window::move(int dx, int dy)
+void core::window::move(int dx, int dy)
 {
 	std::scoped_lock _(m_windowMutex);
-	setXY(getX() + dx,
-		getY() + dy);
+	set_xy(get_x() + dx,
+		get_y() + dy);
 }
 
-bool Core::Window::shouldClose() const
+bool core::window::should_close() const
 {
 	// TODO
 	return false;
 }
 
-Core::Window::NativeWindowType* Core::Window::getNative()
+core::window::native_window_t* core::window::get_native()
 {
 	return m_renderWindow.get();
 }
 
-void Core::Window::_createAndRegisterWindowClass(const TEXT_TYPE CLASS_NAME, [[maybe_unused]]const Core::Window::Info& createInfo)
+void core::window::create_and_register_window_class(const ctext_t CLASS_NAME, [[maybe_unused]]const core::window::info_t& createInfo)
 {
 	auto instance = GetModuleHandle(NULL);
 	WNDCLASSEX wc = { };
@@ -175,11 +175,11 @@ void Core::Window::_createAndRegisterWindowClass(const TEXT_TYPE CLASS_NAME, [[m
 	if(!RegisterClassEx(&wc))
 	{
 		UnregisterClass(CLASS_NAME, instance);
-		throw Exceptions::WindowException("Class register exception", GetLastError());
+		throw exceptions::window_exception("Class register exception", GetLastError());
 	}
 }
 
-void Core::Window::_createWindow(const TEXT_TYPE CLASS_NAME, const TEXT_TYPE WINDOW_TITLE, const Info& createInfo)
+void core::window::create_window(const ctext_t CLASS_NAME, const ctext_t WINDOW_TITLE, const info_t& createInfo)
 {
 	auto instance = GetModuleHandle(NULL);
 
@@ -199,7 +199,7 @@ void Core::Window::_createWindow(const TEXT_TYPE CLASS_NAME, const TEXT_TYPE WIN
 	if (!m_renderWindow)
 	{
 		UnregisterClass(CLASS_NAME, instance);
-		throw Exceptions::WindowException("Exception while creating window", GetLastError());
+		throw exceptions::window_exception("Exception while creating window", GetLastError());
 	}
 }
 

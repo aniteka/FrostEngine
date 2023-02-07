@@ -1,17 +1,17 @@
 ﻿project(Graphics)
 
-include_directories(${PROJECT_SOURCE_DIR}/include/Core/Graphics)
+include_directories(${PROJECT_SOURCE_DIR}/include/core/graphics)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # Libs:
 find_package(Boost 1.80.0 REQUIRED)
 
 add_library(Graphics STATIC 
-   "include/Core/Graphics/Window.h"
-   "src/Window.cpp" 
-   "include/Core/Graphics/GraphicEngineBase.h" 
-   "include/Core/Graphics/GraphicEngineDirectX.h" 
-   "src/GraphicEngineDirectX.cpp")
+   "include/core/graphics/window.h"
+   "src/window.cpp" 
+   "include/core/graphics/graphic_engine_base.h" 
+   "include/core/graphics/graphic_engine_directx.h" 
+   "src/graphic_engine_directx.cpp")
 
 set_target_properties(Graphics PROPERTIES 
     FOLDER "Core"

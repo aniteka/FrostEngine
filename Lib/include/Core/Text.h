@@ -4,17 +4,16 @@
 #endif
 
 #include <string>
-#include <sstream>
+#include <fmt/core.h>
+#include <fmt/xchar.h>
 
-#define TEXT(str) L##str
-#define CHAR_TYPE wchar_t
-#define TEXT_TYPE CHAR_TYPE*
-namespace Core
+#define CTEXT(str) L##str
+#define CFORMAT( str, ... ) fmt::format( CTEXT(str), __VA_ARGS__ )
+#define cchar_t wchar_t
+#define ctext_t cchar_t*
+namespace core
 {
-	using StringType = std::basic_string<CHAR_TYPE, std::char_traits<CHAR_TYPE>, std::allocator<CHAR_TYPE>>;
-	using StringStreamType = std::basic_stringstream<CHAR_TYPE, std::char_traits<CHAR_TYPE>, std::allocator<CHAR_TYPE>>;
-	using StringIStreamType = std::basic_istringstream<CHAR_TYPE, std::char_traits<CHAR_TYPE>, std::allocator<CHAR_TYPE>>;
-	using StringOStreamType = std::basic_ostringstream<CHAR_TYPE, std::char_traits<CHAR_TYPE>, std::allocator<CHAR_TYPE>>;
+	using string_t = std::basic_string<cchar_t, std::char_traits<cchar_t>, std::allocator<cchar_t>>;
 }
 
 

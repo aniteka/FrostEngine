@@ -46,7 +46,7 @@ namespace core
 
 		bool should_close() const;
 
-		[[deprecated]]native_window_t* get_native();
+		[[deprecated]]native_window_t* get_native() const;
 
 	protected:
 		native_window_ptr_t m_renderWindow = nullptr;

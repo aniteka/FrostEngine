@@ -147,7 +147,7 @@ bool core::window::should_close() const
 	return false;
 }
 
-core::window::native_window_t* core::window::get_native()
+core::window::native_window_t* core::window::get_native() const
 {
 	return m_renderWindow.get();
 }

@@ -5,7 +5,7 @@
 
 
 #define CREATE_LOGGER(loggerName) \
-	static auto loggerName = Core::Log::default_logger()->clone(#loggerName)
+	static auto loggerName = core::log::default_logger()->clone(#loggerName)
 
 namespace core::log
 {
@@ -20,7 +20,7 @@ namespace core::log
 				std::vector<sink_ptr> sinks;
 				sinks.push_back(std::make_shared<sinks::stdout_color_sink_mt>());
 				sinks.push_back(std::make_shared<sinks::basic_file_sink<std::mutex>>("logfile"));
-				auto logger = std::make_shared<Log::logger>("GlobalLogger", std::begin(sinks), std::end(sinks));
+				auto logger = std::make_shared<log::logger>("GlobalLogger", std::begin(sinks), std::end(sinks));
 				set_default_logger(logger);
 			}
 		};

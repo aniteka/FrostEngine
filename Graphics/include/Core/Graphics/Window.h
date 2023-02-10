@@ -20,14 +20,18 @@ namespace core
 		, boost::noncopyable
 	{
 		using native_window_t = HWND__;
-		struct native_deleter{void operator()(native_window_t* toDel){DestroyWindow(toDel);}};
+		struct native_deleter{void operator()(native_window_t* to_del){DestroyWindow(to_del);}};
 		using native_window_ptr_t = std::unique_ptr <
 			native_window_t,
 			native_deleter> ;
 	public:
 		using info_t = window_info;
+		enum class window_close_state 
+		{
+			closed, should_close, unclosed
+		};
 
-		explicit window(const info_t& createInfo);
+		explicit window(const info_t& create_info);
 		virtual ~window();
 		window(window&&) noexcept = default;
 		window& operator=(window&&) noexcept = default;
@@ -44,18 +48,25 @@ namespace core
 		void set_xy(int x, int y) override;
 		void move(int dx, int dy) override;
 
-		bool should_close() const;
+		void close();
+		bool should_close();
+		window_close_state close_state() const;
 
-		[[deprecated]]native_window_t* get_native() const;
+		[[deprecated, nodiscard]] native_window_t* get_native() const;
 
 	protected:
-		native_window_ptr_t m_renderWindow = nullptr;
-		mutable std::recursive_mutex m_windowMutex;
+		native_window_ptr_t m_render_window = nullptr;
+		mutable std::recursive_mutex m_window_mutex;
+		window_close_state m_should_close = window_close_state::unclosed;
 
 	private:
-		void create_and_register_window_class(ctext_t CLASS_NAME, const info_t& createInfo);
-		void create_window(ctext_t CLASS_NAME, ctext_t WINDOW_TITLE, const info_t& createInfo);
+		void create_and_register_window_class(ctext_t CLASS_NAME, const info_t& create_info);
+		void create_window(ctext_t CLASS_NAME, ctext_t WINDOW_TITLE, const info_t& create_info);
+
+#ifdef WIN32
+		LRESULT window_proc_callback(HWND window_handler, UINT msg, WPARAM wparam, LPARAM lparam);
 		static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+#endif
 	};
 
 	struct window_info

@@ -8,6 +8,8 @@ CREATE_LOGGER(grapgics_test_logger);
 
 #include <d3d11.h>
 #include <d3dx11.h>
+#include <d3dcompiler.h>
+#include <DirectXMath.h>
 
 BOOST_AUTO_TEST_SUITE(graphics_tests)
 
@@ -52,33 +54,63 @@ BOOST_AUTO_TEST_CASE(window_test)
 	//}
 }
 
+struct SimpleVertex
+{
+	DirectX::XMFLOAT3 pos;
+};
 
-
-inline D3D_DRIVER_TYPE			driver_type = D3D_DRIVER_TYPE_NULL; // GPU or CPU
-inline D3D_FEATURE_LEVEL		feature_level = D3D_FEATURE_LEVEL_11_0; // DirectX version
-
-// Три пов'язаних об'єкти, ініціалізуються однією функцією
-inline ID3D11Device*			d3d_device = NULL; // Пристрій( Потрібен для створення ресурсів )
-inline ID3D11DeviceContext*		immediate_context = NULL; // Контекст пристрою(малювання)
-inline IDXGISwapChain*			swap_chain = NULL; // працює з буферами малювання
-// буде існувати в любій програмі та містить мінімум 2 буфери
-// передній буфер - екран
-// задній буфер - на ньому малюємо сцену
-
-// об'єкт заднього буферу
+inline D3D_DRIVER_TYPE			driver_type = D3D_DRIVER_TYPE_NULL;
+inline D3D_FEATURE_LEVEL		feature_level = D3D_FEATURE_LEVEL_11_0;
+inline ID3D11Device*			d3d_device = NULL;
+inline ID3D11DeviceContext*		immediate_context = NULL; 
+inline IDXGISwapChain*			swap_chain = NULL;
 inline ID3D11RenderTargetView*	render_target_view = NULL;
+// Вершинний шейдер
+inline ID3D11VertexShader*		vertex_shader = NULL;
+// Піксельний шейдер
+inline ID3D11PixelShader*		pixel_shader = NULL;
+// Опис формату вершин
+inline ID3D11InputLayout*		vertex_layout = NULL;
+// Буфер вершин
+inline ID3D11Buffer*			vertex_buffer = NULL;
 
-// init of d3d_device, immediate_context, swap_chain
+// Загружає та компілює шейдери 
+inline HRESULT compile_shader_from_file( const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model, ID3DBlob** blob_out )
+{
+	HRESULT to_ret = S_OK;
+	DWORD shader_flags = D3DCOMPILE_ENABLE_STRICTNESS;
+	ID3DBlob* error_blob;
+	to_ret = D3DX11CompileFromFile(
+		file_name,
+		NULL,
+		NULL,
+		entry_point,
+		shader_model,
+		shader_flags,
+		0,
+		NULL,
+		blob_out,
+		&error_blob,
+		NULL);
+
+	if (FAILED(to_ret) && error_blob)
+		grapgics_test_logger->error("%s", static_cast<const char*>(error_blob->GetBufferPointer()));
+	if (error_blob)
+		error_blob->Release();
+
+	return to_ret;
+}
 inline HRESULT init_device(const core::window& window)
 {
 	HRESULT to_ret = S_OK;
 
-	// розміри вікна
 	UINT width = window.get_width();
 	UINT height = window.get_height();
 	UINT create_device_flags = 0;
+#ifndef NDEBUG
+	create_device_flags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
 
-	// потрібен для вибору пристрою
 	D3D_DRIVER_TYPE driver_types[] =
 	{
 		D3D_DRIVER_TYPE_HARDWARE,
@@ -87,7 +119,6 @@ inline HRESULT init_device(const core::window& window)
 	};
 	UINT num_driver_types = ARRAYSIZE(driver_types);
 
-	// список версій directx, які підтримує програма
 	D3D_FEATURE_LEVEL feature_levels[] =
 	{
 		D3D_FEATURE_LEVEL_11_0,
@@ -97,20 +128,19 @@ inline HRESULT init_device(const core::window& window)
 	};
 	UINT num_feature_levels = ARRAYSIZE(feature_levels);
 
-	// структура, яка описує swap_chain
 	DXGI_SWAP_CHAIN_DESC sd;
 	ZeroMemory(&sd, sizeof(sd));
-	sd.BufferCount = 1;				// 1 задній буфер
-	sd.BufferDesc.Width = width;		// ширина буфера
-	sd.BufferDesc.Height = height;		// довжина буфера
-	sd.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // формат пікселя
-	sd.BufferDesc.RefreshRate.Numerator = 75; // частота обнови екрана
+	sd.BufferCount = 1;	
+	sd.BufferDesc.Width = width;
+	sd.BufferDesc.Height = height;
+	sd.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	sd.BufferDesc.RefreshRate.Numerator = 75;
 	sd.BufferDesc.RefreshRate.Denominator = 1;
-	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; // призначення буферу
+	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	sd.OutputWindow = window.get_native();
 	sd.SampleDesc.Count = 1;
 	sd.SampleDesc.Quality = 0;
-	sd.Windowed = TRUE; // віконний режим
+	sd.Windowed = TRUE;
 
 	for(UINT driver_type_index = 0; driver_type_index < num_driver_types; driver_type_index++)
 	{
@@ -135,26 +165,18 @@ inline HRESULT init_device(const core::window& window)
 	if (FAILED(to_ret)) 
 		return to_ret;
 
-	// створюємо задній буфер
-	// render_target_output - передній буфер
-	// render_target_view - задній
-	ID3D11Texture2D* back_buffer = NULL; // вказівник на об'єкт буфера(да да, текстура)
-	// загрузка в back_buffer характеристик буфера
+	ID3D11Texture2D* back_buffer = NULL; 
 	to_ret = swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&back_buffer);
 	if (FAILED(to_ret))
 		return to_ret;
 
-	// сам по собі буфер створюється тут, використовує характеристики, передані в back_buffer
 	to_ret = d3d_device->CreateRenderTargetView(back_buffer, NULL, &render_target_view);
-	// звільняємо об'єкт з характеристиками заднього буфера 
 	back_buffer->Release();
 	if (FAILED(to_ret))
 		return to_ret;
 
-	// підключаємо задній буфер в контекст
 	immediate_context->OMSetRenderTargets(1, &render_target_view, NULL);
 
-	// настройка вюпорта
 	D3D11_VIEWPORT vp;
 	vp.Width = static_cast<FLOAT>(width);
 	vp.Height = static_cast<FLOAT>(height);
@@ -163,15 +185,125 @@ inline HRESULT init_device(const core::window& window)
 	vp.TopLeftX = 0;
 	vp.TopLeftY = 0;
 
-	// підключаємо вюпорт до контексту пристрою
 	immediate_context->RSSetViewports(1, &vp);
 
 	return S_OK;
+}
+// Завантажуємо шейдери та створюємо буфер вершин
+inline HRESULT init_geometry()
+{
+	HRESULT to_ret = S_OK;
+
+	// Створення вершинного шейдеру
+
+	// Допоміжний об'єкт, просто місце в пам'яті, буде зберігатися скомпільований вершинний шейдер
+	ID3DBlob* vsblob = NULL;
+	to_ret = compile_shader_from_file(L"shader.fx", "VS", "vs_4_0", &vsblob);
+	if(FAILED(to_ret))
+	{
+		grapgics_test_logger->critical("cannot compile FX file");
+		return to_ret;
+	}
+
+	to_ret = d3d_device->CreateVertexShader(
+		vsblob->GetBufferPointer(),
+		vsblob->GetBufferSize(),
+		NULL,
+		&vertex_shader
+	);
+	if(FAILED(to_ret))
+	{
+		vsblob->Release();
+		return to_ret;
+	}
+
+	// Визначає шаблон вершин
+	D3D11_INPUT_ELEMENT_DESC layout[] =
+	{
+		{	
+			"POSITION", // семантичне ім'я
+			0, // семантичний індекс
+			DXGI_FORMAT_R32G32B32_FLOAT, // розмір(RGB тут XYZ)
+			0, // вхідний слот
+			0, // адрес початку данних в буфері вершин
+			D3D11_INPUT_PER_VERTEX_DATA, // неважно
+			0 // неважно
+		}
+	};
+
+	UINT num_elements = ARRAYSIZE(layout);
+
+	// створення шаблону вершин
+	to_ret = d3d_device->CreateInputLayout(
+		layout,
+		num_elements,
+		vsblob->GetBufferPointer(),
+		vsblob->GetBufferSize(),
+		&vertex_layout);
+	vsblob->Release();
+
+	if (FAILED(to_ret))
+		return to_ret;
+
+	// підключення шаблону
+	immediate_context->IASetInputLayout(vertex_layout);
+
+	// створення піксельного шейдеру
+	ID3DBlob* psblob = NULL;
+	to_ret = compile_shader_from_file(L"shader.fx", "PS", "ps_4_0", &psblob);
+	if(FAILED(to_ret))
+	{
+		grapgics_test_logger->critical("cannot compile PS file");
+		return to_ret;
+	}
+
+	to_ret = d3d_device->CreatePixelShader(psblob->GetBufferPointer(), psblob->GetBufferSize(), NULL, &pixel_shader);
+	psblob->Release();
+	if (FAILED(to_ret))
+		return to_ret;
+
+	// Створення буферу вершин
+	SimpleVertex vertices[3];
+	vertices[0].pos.x = 0.0f;	vertices[0].pos.y = 0.5f;	vertices[0].pos.z = 0.5f;
+	vertices[1].pos.x = 0.5f;	vertices[1].pos.y = -0.5f;  vertices[1].pos.z = 0.5f;
+	vertices[2].pos.x = -0.5f;	vertices[2].pos.y = -0.5f;	vertices[2].pos.z = 0.5f;
+
+	// структура, яка описує створюваний буфер
+	D3D11_BUFFER_DESC bd;
+	ZeroMemory(&bd, sizeof(bd));
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.ByteWidth = sizeof(SimpleVertex) * 3; // розмір буфера = розмір 1 вершини * 3
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER; // тип буфера
+	bd.CPUAccessFlags = 0;
+
+	D3D11_SUBRESOURCE_DATA init_data; // структура з даними буфера
+	ZeroMemory(&init_data, sizeof(init_data)); 
+	init_data.pSysMem = vertices; // вказує на створювані вершини
+
+	// створюємо буфер
+	to_ret = d3d_device->CreateBuffer(&bd, &init_data, &vertex_buffer);
+	if (FAILED(to_ret))
+		return to_ret;
+
+	UINT stride = sizeof(SimpleVertex);
+	UINT offset = 0;
+	immediate_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
+
+	// встановлення способу малювання вершин в буфері
+	immediate_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	return to_ret;
 }
 inline void cleanup_device()
 {
 	if (immediate_context) 
 		immediate_context->ClearState();
+	if (vertex_buffer) 
+		vertex_buffer->Release();
+	if (vertex_layout)
+		vertex_layout->Release();
+	if (vertex_shader)
+		vertex_shader->Release();
 	if (render_target_view)
 		render_target_view->Release();
 	if (swap_chain)
@@ -183,11 +315,13 @@ inline void cleanup_device()
 }
 inline void render()
 {
-	// синій колір
 	float clear_color[4] = { 0.f, 0.f, 1.f, 1.f };
-	// малюємо на задньому екрані
 	immediate_context->ClearRenderTargetView(render_target_view, clear_color);
-	// міняємо місцями буфери
+
+	immediate_context->VSSetShader(vertex_shader, NULL, 0);
+	immediate_context->PSSetShader(pixel_shader, NULL, 0);
+	immediate_context->Draw(3, 0);
+
 	swap_chain->Present(0, 0);
 }
 
@@ -203,6 +337,14 @@ BOOST_AUTO_TEST_CASE(graphics_test)
 	{
 		cleanup_device();
 		grapgics_test_logger->critical("can't init device: {}", err);
+		std::exit(-1);
+	}
+
+	err = init_geometry();
+	if (FAILED(err))
+	{
+		cleanup_device();
+		grapgics_test_logger->critical("can't init geometry: {}", err);
 		std::exit(-1);
 	}
 

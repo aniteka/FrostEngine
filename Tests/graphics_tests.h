@@ -265,16 +265,36 @@ inline HRESULT init_geometry()
 		return to_ret;
 
 	// Створення буферу вершин
-	SimpleVertex vertices[3];
-	vertices[0].pos.x = 0.0f;	vertices[0].pos.y = 0.5f;	vertices[0].pos.z = 0.5f;
-	vertices[1].pos.x = 0.5f;	vertices[1].pos.y = -0.5f;  vertices[1].pos.z = 0.5f;
-	vertices[2].pos.x = -0.5f;	vertices[2].pos.y = -0.5f;	vertices[2].pos.z = 0.5f;
+#define CNT_OF_CIRCLE_POLYGONS 100
+#define VERTEX_COUNT (CNT_OF_CIRCLE_POLYGONS * 2 + 2)
+#define PI 3.14f
+#define SET_POINT(v, _x, _y) v.pos.x = (_x); v.pos.y = (_y); v.pos.z = 0.5f; 
+	SimpleVertex vertices[VERTEX_COUNT];
+	ZeroMemory(vertices, sizeof(vertices));
+	float delta = 2.f * PI / (float)CNT_OF_CIRCLE_POLYGONS;
+	SET_POINT(vertices[0], 0, 0);
+	SET_POINT(vertices[1],
+		cosf(0),
+		sinf(0));
+	for(int index = 2, side_index = 1; index < VERTEX_COUNT - 1;)
+	{
+		SET_POINT(vertices[index],
+			cosf((float)side_index * delta),
+			sinf((float)side_index * delta));
+		index++;
+		SET_POINT(vertices[index],
+			-cosf((float)side_index * delta),
+			-sinf((float)side_index * delta));
+		index++;
+		side_index++;
+	}
+	
 
 	// структура, яка описує створюваний буфер
 	D3D11_BUFFER_DESC bd;
 	ZeroMemory(&bd, sizeof(bd));
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(SimpleVertex) * 3; // розмір буфера = розмір 1 вершини * 3
+	bd.ByteWidth = sizeof(SimpleVertex) * VERTEX_COUNT; // розмір буфера = розмір 1 вершини * 3
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER; // тип буфера
 	bd.CPUAccessFlags = 0;
 
@@ -292,7 +312,7 @@ inline HRESULT init_geometry()
 	immediate_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
 
 	// встановлення способу малювання вершин в буфері
-	immediate_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	immediate_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	return to_ret;
 }
@@ -322,7 +342,7 @@ inline void render()
 
 	immediate_context->VSSetShader(vertex_shader, NULL, 0);
 	immediate_context->PSSetShader(pixel_shader, NULL, 0);
-	immediate_context->Draw(3, 0);
+	immediate_context->Draw(VERTEX_COUNT, 0);
 
 	swap_chain->Present(0, 0);
 }

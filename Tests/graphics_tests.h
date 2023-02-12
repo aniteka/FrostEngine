@@ -54,9 +54,21 @@ BOOST_AUTO_TEST_CASE(window_test)
 	//}
 }
 
+
+
+
 struct SimpleVertex
 {
 	DirectX::XMFLOAT3 pos;
+	DirectX::XMFLOAT4 color; // колір вершини
+};
+
+// Структора константного буфера
+struct ConstantBuffer
+{
+	DirectX::XMMATRIX world;		// матриця основного світу
+	DirectX::XMMATRIX view;			// матриця камери
+	DirectX::XMMATRIX projection;	// матриця проекції
 };
 
 inline D3D_DRIVER_TYPE			driver_type = D3D_DRIVER_TYPE_NULL;
@@ -65,16 +77,97 @@ inline ID3D11Device*			d3d_device = NULL;
 inline ID3D11DeviceContext*		immediate_context = NULL; 
 inline IDXGISwapChain*			swap_chain = NULL;
 inline ID3D11RenderTargetView*	render_target_view = NULL;
-// Вершинний шейдер
+
 inline ID3D11VertexShader*		vertex_shader = NULL;
-// Піксельний шейдер
 inline ID3D11PixelShader*		pixel_shader = NULL;
-// Опис формату вершин
 inline ID3D11InputLayout*		vertex_layout = NULL;
-// Буфер вершин
 inline ID3D11Buffer*			vertex_buffer = NULL;
 
-// Загружає та компілює шейдери 
+// Буфер індексів вершин
+// Він описує порядок малювання вершин
+inline ID3D11Buffer*			index_buffer = NULL;
+// Буфер індексів констант
+// Потрібен для передачі данних(в цьому випадку матриць) в шейдер
+inline ID3D11Buffer*			constant_buffer = NULL;
+
+// матриця світу
+DirectX::XMMATRIX world;
+// матриця виду
+DirectX::XMMATRIX view;
+// матриця проекції
+DirectX::XMMATRIX projection;
+
+inline HRESULT init_device(const core::window& window);
+inline HRESULT init_geometry();
+// ініціалізація матриць
+inline HRESULT init_matrixes(const core::window& window);
+
+inline HRESULT compile_shader_from_file(const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model, ID3DBlob** blob_out);
+// оновлення матриць
+// викликається перед малюавнням кожного кадру
+// вона буде повертати матрицю світу
+inline void set_matrixes();
+inline void cleanup_device();
+inline void render();
+
+// Послідовність ініціалізації:
+// Створення вікна -> Створення пристроя DirectX -> Створення геометрії(вершин, їх опису, завантаження шейдерів) ->
+// -> Ініціалізація матриць -> Перехід в основний цикл повертатися піраміда
+
+BOOST_AUTO_TEST_CASE(graphics_test)
+{
+	core::window window({
+		.width = 500,
+		.height = 400,
+		.title = CTEXT("Hello Window")});
+
+	auto err = init_device(window);
+	if(FAILED(err))
+	{
+		cleanup_device();
+		grapgics_test_logger->critical("can't init device: {}", err);
+		std::exit(-1);
+	}
+
+	err = init_geometry();
+	if (FAILED(err))
+	{
+		cleanup_device();
+		grapgics_test_logger->critical("can't init geometry: {}", err);
+		std::exit(-1);
+	}
+
+	err = init_matrixes(window);
+	if( FAILED(err))
+	{
+		cleanup_device();
+		grapgics_test_logger->critical("can't init matrixses: {}", err);
+		std::exit(-1);
+	}
+
+	MSG msg;
+	ZeroMemory(&msg, sizeof(MSG));
+	while(!window.should_close())
+	{
+		if (PeekMessage(&msg, window.get_native(), 0, 0, PM_REMOVE))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		else
+		{
+			// оновлення матриці світу
+			set_matrixes();
+			render();
+		}
+	}
+	cleanup_device();
+}
+
+
+
+
+
 inline HRESULT compile_shader_from_file( const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model, ID3DBlob** blob_out )
 {
 	HRESULT to_ret = S_OK;
@@ -189,14 +282,10 @@ inline HRESULT init_device(const core::window& window)
 
 	return S_OK;
 }
-// Завантажуємо шейдери та створюємо буфер вершин
 inline HRESULT init_geometry()
 {
 	HRESULT to_ret = S_OK;
 
-	// Створення вершинного шейдеру
-
-	// Допоміжний об'єкт, просто місце в пам'яті, буде зберігатися скомпільований вершинний шейдер
 	ID3DBlob* vsblob = NULL;
 	to_ret = compile_shader_from_file(L"shader.fx", "VS", "vs_4_0", &vsblob);
 	if(FAILED(to_ret))
@@ -217,23 +306,30 @@ inline HRESULT init_geometry()
 		return to_ret;
 	}
 
-	// Визначає шаблон вершин
+	// в шаблоні вершин з'являється додаткова строка кольору(так само я і в структурі SimpleVertex)
 	D3D11_INPUT_ELEMENT_DESC layout[] =
 	{
 		{	
-			"POSITION", // семантичне ім'я
-			0, // семантичний індекс
-			DXGI_FORMAT_R32G32B32_FLOAT, // розмір(RGB тут XYZ)
-			0, // вхідний слот
-			0, // адрес початку данних в буфері вершин
-			D3D11_INPUT_PER_VERTEX_DATA, // неважно
-			0 // неважно
+			"POSITION",
+			0, 
+			DXGI_FORMAT_R32G32B32_FLOAT, 
+			0,
+			0,
+			D3D11_INPUT_PER_VERTEX_DATA, 
+			0
+		},{ 
+			"COLOR",
+			0,
+			DXGI_FORMAT_R32G32B32A32_FLOAT, // розмір
+			0,
+			12, // зміщення відносто початку структури(pos = 12 байт(R32G32B32))
+			D3D11_INPUT_PER_VERTEX_DATA,
+			0
 		}
 	};
 
 	UINT num_elements = ARRAYSIZE(layout);
 
-	// створення шаблону вершин
 	to_ret = d3d_device->CreateInputLayout(
 		layout,
 		num_elements,
@@ -245,10 +341,8 @@ inline HRESULT init_geometry()
 	if (FAILED(to_ret))
 		return to_ret;
 
-	// підключення шаблону
 	immediate_context->IASetInputLayout(vertex_layout);
 
-	// створення піксельного шейдеру
 	ID3DBlob* psblob = NULL;
 	to_ret = compile_shader_from_file(L"shader.fx", "PS", "ps_4_0", &psblob);
 	if(FAILED(to_ret))
@@ -262,26 +356,51 @@ inline HRESULT init_geometry()
 	if (FAILED(to_ret))
 		return to_ret;
 
-	// Створення буферу вершин
-	SimpleVertex vertices[3];
-	vertices[0].pos.x = 0.0f;	vertices[0].pos.y = 0.5f;	vertices[0].pos.z = 0.5f;
-	vertices[1].pos.x = 0.5f;	vertices[1].pos.y = -0.5f;  vertices[1].pos.z = 0.5f;
-	vertices[2].pos.x = -0.5f;	vertices[2].pos.y = -0.5f;	vertices[2].pos.z = 0.5f;
+	using namespace DirectX;
+	SimpleVertex vertices[] = 
+		{	/* кординати x,y,z                     колір R,G,B,A */
+			// висота піраміди
+			{XMFLOAT3{ 0.f, 1.5f, 0.f} , XMFLOAT4{1.f, 1.f, 0.f, 1.f}},
+			// основа піраміди
+			{XMFLOAT3{-1.f, 0.f, -1.f} , XMFLOAT4{0.f, 1.f, 0.f, 1.f}},
+			{XMFLOAT3{ 1.f, 0.f, -1.f} , XMFLOAT4{1.f, 0.f, 0.f, 1.f}},
+			{XMFLOAT3{-1.f, 0.f,  1.f} , XMFLOAT4{0.f, 1.f, 1.f, 1.f}},
+			{XMFLOAT3{ 1.f, 0.f,  1.f} , XMFLOAT4{1.f, 0.f, 1.f, 1.f}},
+		};
 
-	// структура, яка описує створюваний буфер
 	D3D11_BUFFER_DESC bd;
 	ZeroMemory(&bd, sizeof(bd));
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(SimpleVertex) * 3; // розмір буфера = розмір 1 вершини * 3
-	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER; // тип буфера
+	bd.ByteWidth = sizeof(SimpleVertex) * 5;
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER; 
 	bd.CPUAccessFlags = 0;
 
-	D3D11_SUBRESOURCE_DATA init_data; // структура з даними буфера
+	D3D11_SUBRESOURCE_DATA init_data;
 	ZeroMemory(&init_data, sizeof(init_data)); 
-	init_data.pSysMem = vertices; // вказує на створювані вершини
+	init_data.pSysMem = vertices; 	
 
-	// створюємо буфер
 	to_ret = d3d_device->CreateBuffer(&bd, &init_data, &vertex_buffer);
+	if (FAILED(to_ret))
+		return to_ret;
+
+	WORD indices[] =
+	{ // індекси масива vertices[], по яким буде строїтися трикутник
+		0,2,1, // сторона позаду
+		0,3,4, // сторона попереду
+		0,1,3, // сторона зліва
+		0,4,2, // сторона зправа
+
+		1,2,3, // одна частина квадратного дна
+		2,4,3, // друга частина квадратного дна
+	};
+	ZeroMemory(&bd, sizeof(bd));
+	bd.Usage = D3D11_USAGE_DEFAULT; // структура, яка описує створюваний буфер 
+	bd.ByteWidth = sizeof(WORD) * 18;
+	bd.BindFlags = D3D11_BIND_INDEX_BUFFER; // тип - буфер трикутників
+	bd.CPUAccessFlags = 0;
+	ZeroMemory(&init_data, sizeof(init_data)); 
+	init_data.pSysMem = indices;
+	to_ret = d3d_device->CreateBuffer(&bd, &init_data, &index_buffer);
 	if (FAILED(to_ret))
 		return to_ret;
 
@@ -289,17 +408,94 @@ inline HRESULT init_geometry()
 	UINT offset = 0;
 	immediate_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
 
-	// встановлення способу малювання вершин в буфері
+	// встановлення буферу індексів
+	immediate_context->IASetIndexBuffer(index_buffer, DXGI_FORMAT_R16_UINT, 0);
+
 	immediate_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+	ZeroMemory(&bd, sizeof(bd));
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.ByteWidth = sizeof(ConstantBuffer);
+	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	bd.CPUAccessFlags = 0;
+	to_ret = d3d_device->CreateBuffer(&bd, NULL, &constant_buffer);
+	if (FAILED(to_ret))
+		return to_ret;
+
 	return to_ret;
+}
+inline HRESULT init_matrixes(const core::window& window)
+{
+	using namespace DirectX;
+	UINT width = window.get_width();
+	UINT height = window.get_height();
+
+	// ініціалізує матрицю
+	world = XMMatrixIdentity();
+
+	// ініціфалізація матриці камери
+	// звідки дивимося
+	auto eye		= XMVectorSet(0.f, 1.f, -5.f, 0.f);
+	// куди дивимося
+	auto at		= XMVectorSet(0.f, 1.f, 0.f, 0.f);
+	// напрямок верху
+	auto up		= XMVectorSet(0.f, 1.f, 0.f, 0.f);
+	view = XMMatrixLookAtLH(eye, at, up);
+
+	// встановлення матриці проекції
+	projection = XMMatrixPerspectiveFovLH(
+		XM_PIDIV4,						// ширина кута об'єктиву
+		width / (FLOAT)height,			// квадратність пікселю
+		0.01f,							// найблища видима відстань
+		100.f							// найдальша видима відстань
+	);
+
+	return S_OK;
+}
+
+inline void set_matrixes()
+{
+	using namespace DirectX;
+	// оновлення змінної часу
+	static float t = 0.f;
+	if(driver_type == D3D_DRIVER_TYPE_REFERENCE)
+	{
+		t += (float)XM_PI * 0.0125f;
+	}
+	else
+	{
+		static DWORD time_start = 0;
+		DWORD time_cur = GetTickCount();
+		if (time_start == 0)
+			time_start = time_cur;
+		t = (float)(time_cur - time_start) / 1000.f;
+	}
+
+	// повертаємо світ по осі Y на кут t(в радіанах)
+	world = XMMatrixRotationY(t);
+
+	// Оновлюємо константний буфер
+	ConstantBuffer cb;
+	// шото тіпа std::move для матриць, краще не користуватися перегруженим operator=
+	cb.world = XMMatrixTranspose(world);
+	cb.view = XMMatrixTranspose(view);
+	cb.projection = XMMatrixTranspose(projection);
+	// завантажуємо тимчасову структуру в константний буфер constant_buffer
+	immediate_context->UpdateSubresource(constant_buffer, 
+		0, NULL, 
+		&cb, 
+		0, 0);
 }
 inline void cleanup_device()
 {
 	if (immediate_context) 
 		immediate_context->ClearState();
+	if (constant_buffer)
+		constant_buffer->Release();
 	if (vertex_buffer) 
 		vertex_buffer->Release();
+	if (index_buffer)
+		index_buffer->Release();
 	if (vertex_layout)
 		vertex_layout->Release();
 	if (vertex_shader)
@@ -319,49 +515,15 @@ inline void render()
 	immediate_context->ClearRenderTargetView(render_target_view, clear_color);
 
 	immediate_context->VSSetShader(vertex_shader, NULL, 0);
+	// Загружаємо константний буфер в вершинний шейдер
+	immediate_context->VSSetConstantBuffers(0, 1, &constant_buffer);
 	immediate_context->PSSetShader(pixel_shader, NULL, 0);
-	immediate_context->Draw(3, 0);
+	// Намалювати 18 індексових вершин
+	immediate_context->DrawIndexed(18, 0, 0);
 
 	swap_chain->Present(0, 0);
 }
 
-BOOST_AUTO_TEST_CASE(graphics_test)
-{
-	core::window window({
-		.width = 500,
-		.height = 400,
-		.title = CTEXT("Hello Window")});
-
-	auto err = init_device(window);
-	if(FAILED(err))
-	{
-		cleanup_device();
-		grapgics_test_logger->critical("can't init device: {}", err);
-		std::exit(-1);
-	}
-
-	err = init_geometry();
-	if (FAILED(err))
-	{
-		cleanup_device();
-		grapgics_test_logger->critical("can't init geometry: {}", err);
-		std::exit(-1);
-	}
-
-	MSG msg;
-	ZeroMemory(&msg, sizeof(MSG));
-	while(!window.should_close())
-	{
-		if (PeekMessage(&msg, window.get_native(), 0, 0, PM_REMOVE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-		else
-			render();
-	}
-	cleanup_device();
-}
 
 BOOST_AUTO_TEST_SUITE_END()
 

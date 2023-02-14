@@ -77,42 +77,31 @@ inline ID3D11Device*			d3d_device = NULL;
 inline ID3D11DeviceContext*		immediate_context = NULL; 
 inline IDXGISwapChain*			swap_chain = NULL;
 inline ID3D11RenderTargetView*	render_target_view = NULL;
+// Буфер глибини(0 - дуже близько, 1 - безкінечно далеко)
+// Текстура буфера глибини TODO
+inline ID3D11Texture2D*			depth_stencil = NULL;
+// Буфер глибини
+inline ID3D11DepthStencilView*	depth_stencil_view = NULL;
 
 inline ID3D11VertexShader*		vertex_shader = NULL;
 inline ID3D11PixelShader*		pixel_shader = NULL;
 inline ID3D11InputLayout*		vertex_layout = NULL;
 inline ID3D11Buffer*			vertex_buffer = NULL;
-
-// Буфер індексів вершин
-// Він описує порядок малювання вершин
 inline ID3D11Buffer*			index_buffer = NULL;
-// Буфер індексів констант
-// Потрібен для передачі данних(в цьому випадку матриць) в шейдер
 inline ID3D11Buffer*			constant_buffer = NULL;
 
-// матриця світу
 DirectX::XMMATRIX world;
-// матриця виду
 DirectX::XMMATRIX view;
-// матриця проекції
 DirectX::XMMATRIX projection;
 
 inline HRESULT init_device(const core::window& window);
 inline HRESULT init_geometry();
-// ініціалізація матриць
 inline HRESULT init_matrixes(const core::window& window);
 
 inline HRESULT compile_shader_from_file(const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model, ID3DBlob** blob_out);
-// оновлення матриць
-// викликається перед малюавнням кожного кадру
-// вона буде повертати матрицю світу
-inline void set_matrixes();
+inline void set_matrixes(float angle);
 inline void cleanup_device();
 inline void render();
-
-// Послідовність ініціалізації:
-// Створення вікна -> Створення пристроя DirectX -> Створення геометрії(вершин, їх опису, завантаження шейдерів) ->
-// -> Ініціалізація матриць -> Перехід в основний цикл повертатися піраміда
 
 BOOST_AUTO_TEST_CASE(graphics_test)
 {
@@ -155,11 +144,7 @@ BOOST_AUTO_TEST_CASE(graphics_test)
 			DispatchMessage(&msg);
 		}
 		else
-		{
-			// оновлення матриці світу
-			set_matrixes();
 			render();
-		}
 	}
 	cleanup_device();
 }
@@ -268,7 +253,47 @@ inline HRESULT init_device(const core::window& window)
 	if (FAILED(to_ret))
 		return to_ret;
 
-	immediate_context->OMSetRenderTargets(1, &render_target_view, NULL);
+	// Створення текстури для заднього буферу
+	D3D11_TEXTURE2D_DESC depth_desk;
+	ZeroMemory(&depth_desk, sizeof(depth_desk));
+	depth_desk.Width = width;
+	depth_desk.Height = height;
+	depth_desk.MipLevels = 1;	// рівень інтерполяції
+	depth_desk.ArraySize = 1;
+	depth_desk.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	depth_desk.SampleDesc.Count = 1;
+	depth_desk.SampleDesc.Quality = 0;
+	depth_desk.Usage = D3D11_USAGE_DEFAULT;
+	depth_desk.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	depth_desk.CPUAccessFlags = 0;
+	depth_desk.MiscFlags = 0;
+
+	to_ret = d3d_device->CreateTexture2D(
+		&depth_desk,
+		NULL,
+		&depth_stencil);
+	if (FAILED(to_ret))
+		return to_ret;
+
+	// Створення виду глубини
+	D3D11_DEPTH_STENCIL_VIEW_DESC dsv_desk;
+	ZeroMemory(&dsv_desk, sizeof(dsv_desk));
+	dsv_desk.Format = depth_desk.Format;
+	dsv_desk.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	dsv_desk.Texture2D.MipSlice = 0;
+
+	to_ret = d3d_device->CreateDepthStencilView(
+		depth_stencil,
+		&dsv_desk,
+		&depth_stencil_view
+	);
+	if (FAILED(to_ret))
+		return to_ret;
+
+	// Встановлення виду глибини
+	immediate_context->OMSetRenderTargets(1, 
+		&render_target_view, 
+		depth_stencil_view);
 
 	D3D11_VIEWPORT vp;
 	vp.Width = static_cast<FLOAT>(width);
@@ -306,7 +331,6 @@ inline HRESULT init_geometry()
 		return to_ret;
 	}
 
-	// в шаблоні вершин з'являється додаткова строка кольору(так само я і в структурі SimpleVertex)
 	D3D11_INPUT_ELEMENT_DESC layout[] =
 	{
 		{	
@@ -320,9 +344,9 @@ inline HRESULT init_geometry()
 		},{ 
 			"COLOR",
 			0,
-			DXGI_FORMAT_R32G32B32A32_FLOAT, // розмір
+			DXGI_FORMAT_R32G32B32A32_FLOAT, 
 			0,
-			12, // зміщення відносто початку структури(pos = 12 байт(R32G32B32))
+			12, 
 			D3D11_INPUT_PER_VERTEX_DATA,
 			0
 		}
@@ -358,10 +382,8 @@ inline HRESULT init_geometry()
 
 	using namespace DirectX;
 	SimpleVertex vertices[] = 
-		{	/* кординати x,y,z                     колір R,G,B,A */
-			// висота піраміди
+		{	
 			{XMFLOAT3{ 0.f, 1.5f, 0.f} , XMFLOAT4{1.f, 1.f, 0.f, 1.f}},
-			// основа піраміди
 			{XMFLOAT3{-1.f, 0.f, -1.f} , XMFLOAT4{0.f, 1.f, 0.f, 1.f}},
 			{XMFLOAT3{ 1.f, 0.f, -1.f} , XMFLOAT4{1.f, 0.f, 0.f, 1.f}},
 			{XMFLOAT3{-1.f, 0.f,  1.f} , XMFLOAT4{0.f, 1.f, 1.f, 1.f}},
@@ -384,19 +406,19 @@ inline HRESULT init_geometry()
 		return to_ret;
 
 	WORD indices[] =
-	{ // індекси масива vertices[], по яким буде строїтися трикутник
-		0,2,1, // сторона позаду
-		0,3,4, // сторона попереду
-		0,1,3, // сторона зліва
-		0,4,2, // сторона зправа
+	{
+		0,2,1, 
+		0,3,4, 
+		0,1,3, 
+		0,4,2, 
 
-		1,2,3, // одна частина квадратного дна
-		2,4,3, // друга частина квадратного дна
+		1,2,3, 
+		2,4,3, 
 	};
 	ZeroMemory(&bd, sizeof(bd));
-	bd.Usage = D3D11_USAGE_DEFAULT; // структура, яка описує створюваний буфер 
+	bd.Usage = D3D11_USAGE_DEFAULT; 
 	bd.ByteWidth = sizeof(WORD) * 18;
-	bd.BindFlags = D3D11_BIND_INDEX_BUFFER; // тип - буфер трикутників
+	bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	bd.CPUAccessFlags = 0;
 	ZeroMemory(&init_data, sizeof(init_data)); 
 	init_data.pSysMem = indices;
@@ -408,7 +430,6 @@ inline HRESULT init_geometry()
 	UINT offset = 0;
 	immediate_context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offset);
 
-	// встановлення буферу індексів
 	immediate_context->IASetIndexBuffer(index_buffer, DXGI_FORMAT_R16_UINT, 0);
 
 	immediate_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -430,33 +451,26 @@ inline HRESULT init_matrixes(const core::window& window)
 	UINT width = window.get_width();
 	UINT height = window.get_height();
 
-	// ініціалізує матрицю
 	world = XMMatrixIdentity();
 
-	// ініціфалізація матриці камери
-	// звідки дивимося
-	auto eye		= XMVectorSet(0.f, 1.f, -5.f, 0.f);
-	// куди дивимося
+	auto eye		= XMVectorSet(0.f, 1.f, -8.f, 0.f);
 	auto at		= XMVectorSet(0.f, 1.f, 0.f, 0.f);
-	// напрямок верху
 	auto up		= XMVectorSet(0.f, 1.f, 0.f, 0.f);
 	view = XMMatrixLookAtLH(eye, at, up);
 
-	// встановлення матриці проекції
 	projection = XMMatrixPerspectiveFovLH(
-		XM_PIDIV4,						// ширина кута об'єктиву
-		width / (FLOAT)height,			// квадратність пікселю
-		0.01f,							// найблища видима відстань
-		100.f							// найдальша видима відстань
+		XM_PIDIV4,						
+		width / (FLOAT)height,			
+		0.01f,							
+		100.f							
 	);
 
 	return S_OK;
 }
 
-inline void set_matrixes()
+inline void set_matrixes(float angle)
 {
 	using namespace DirectX;
-	// оновлення змінної часу
 	static float t = 0.f;
 	if(driver_type == D3D_DRIVER_TYPE_REFERENCE)
 	{
@@ -471,16 +485,24 @@ inline void set_matrixes()
 		t = (float)(time_cur - time_start) / 1000.f;
 	}
 
-	// повертаємо світ по осі Y на кут t(в радіанах)
-	world = XMMatrixRotationY(t);
+	// матриця-орбіта: позиція об'єкта
+	auto orbit = XMMatrixRotationY(-t + angle);
+	// матриця-срін: повертаємо об'єкт навколо своєї осі
+	auto spin = XMMatrixRotationY(t * 2);
+	// матриця-позиція: переміщення на 3 одиниці вліво від початку координат
+	auto translate = XMMatrixTranslation(-3.f, 0.f, 0.f);
+	// матриця-маштаб: скейлимо трикутник в половину рази
+	auto scale = XMMatrixScaling(.5f, .5f, .5f);
 
-	// Оновлюємо константний буфер
+	// трикутник знаходиться в центрі, кординати 0,0,0
+	// Сжимаємо -> повертаємо(ще не було переміщення) -> переносимо вліво ->
+	// -> знову повертаємо(відносно 0), так 6 трикутників зможуть розташуватися на екрані рівномірно
+	world = scale * spin * translate * orbit;
+
 	ConstantBuffer cb;
-	// шото тіпа std::move для матриць, краще не користуватися перегруженим operator=
 	cb.world = XMMatrixTranspose(world);
 	cb.view = XMMatrixTranspose(view);
 	cb.projection = XMMatrixTranspose(projection);
-	// завантажуємо тимчасову структуру в константний буфер constant_buffer
 	immediate_context->UpdateSubresource(constant_buffer, 
 		0, NULL, 
 		&cb, 
@@ -500,6 +522,10 @@ inline void cleanup_device()
 		vertex_layout->Release();
 	if (vertex_shader)
 		vertex_shader->Release();
+	if (depth_stencil)
+		depth_stencil->Release();
+	if (depth_stencil_view)
+		depth_stencil_view->Release();
 	if (render_target_view)
 		render_target_view->Release();
 	if (swap_chain)
@@ -514,12 +540,18 @@ inline void render()
 	float clear_color[4] = { 0.f, 0.f, 1.f, 1.f };
 	immediate_context->ClearRenderTargetView(render_target_view, clear_color);
 
-	immediate_context->VSSetShader(vertex_shader, NULL, 0);
-	// Загружаємо константний буфер в вершинний шейдер
-	immediate_context->VSSetConstantBuffers(0, 1, &constant_buffer);
-	immediate_context->PSSetShader(pixel_shader, NULL, 0);
-	// Намалювати 18 індексових вершин
-	immediate_context->DrawIndexed(18, 0, 0);
+	// очищаємо буфер глибини до 1(максимум)
+	immediate_context->ClearDepthStencilView(depth_stencil_view, D3D11_CLEAR_DEPTH, 1.f, 0);
+
+	for (int i = 0; i < 6; ++i)
+	{
+		// тут малюємо кожен трикутник по віддільності на задньому буфері
+		set_matrixes(i * (3.14f * 2.f) / 6.f);
+		immediate_context->VSSetShader(vertex_shader, NULL, 0);
+		immediate_context->VSSetConstantBuffers(0, 1, &constant_buffer);
+		immediate_context->PSSetShader(pixel_shader, NULL, 0);
+		immediate_context->DrawIndexed(18, 0, 0);
+	}
 
 	swap_chain->Present(0, 0);
 }

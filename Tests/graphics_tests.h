@@ -55,20 +55,25 @@ BOOST_AUTO_TEST_CASE(window_test)
 }
 
 
+// В 5 уроці будуть 2 джерела світла
+#define MX_SETWORLD 0x101
 
 
 struct SimpleVertex
 {
 	DirectX::XMFLOAT3 pos;
-	DirectX::XMFLOAT4 color; // колір вершини
+	DirectX::XMFLOAT3 normal; // нормаль вершини
 };
 
 // Структора константного буфера
 struct ConstantBuffer
 {
-	DirectX::XMMATRIX world;		// матриця основного світу
-	DirectX::XMMATRIX view;			// матриця камери
-	DirectX::XMMATRIX projection;	// матриця проекції
+	DirectX::XMMATRIX world;			// матриця основного світу
+	DirectX::XMMATRIX view;				// матриця камери
+	DirectX::XMMATRIX projection;		// матриця проекції
+	DirectX::XMFLOAT4 light_dir[2];		// напрямок світла
+	DirectX::XMFLOAT4 light_color[2];	// колір джерела
+	DirectX::XMFLOAT4 output_color;		// активний колір TODO чо за колір
 };
 
 inline D3D_DRIVER_TYPE			driver_type = D3D_DRIVER_TYPE_NULL;
@@ -85,21 +90,30 @@ inline ID3D11DepthStencilView*	depth_stencil_view = NULL;
 
 inline ID3D11VertexShader*		vertex_shader = NULL;
 inline ID3D11PixelShader*		pixel_shader = NULL;
+inline ID3D11PixelShader*		pixel_shader_solid = NULL; // Піксельний шейдер для джерел світла
 inline ID3D11InputLayout*		vertex_layout = NULL;
 inline ID3D11Buffer*			vertex_buffer = NULL;
 inline ID3D11Buffer*			index_buffer = NULL;
 inline ID3D11Buffer*			constant_buffer = NULL;
 
-DirectX::XMMATRIX world;
-DirectX::XMMATRIX view;
-DirectX::XMMATRIX projection;
+inline DirectX::XMMATRIX	world;
+inline DirectX::XMMATRIX	view;
+inline DirectX::XMMATRIX	projection;
+inline FLOAT				t = 0.f;		// Змінна часу
+
+inline DirectX::XMFLOAT4 light_dirs[2];		// Напрямок світла (позиція джерел)
+inline DirectX::XMFLOAT4 light_colors[2];	// Колір джерел
 
 inline HRESULT init_device(const core::window& window);
 inline HRESULT init_geometry();
 inline HRESULT init_matrixes(const core::window& window);
 
+inline void update_light();						// оновлення параметрів світла
+// оновлення матриці світу
+// Встаеовлює матриці для поточного джерела світла (0-1) чи для світа(MX_SETWORLD)
+inline void update_matrix(UINT light_index);	
+
 inline HRESULT compile_shader_from_file(const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model, ID3DBlob** blob_out);
-inline void set_matrixes(float angle);
 inline void cleanup_device();
 inline void render();
 
@@ -312,7 +326,7 @@ inline HRESULT init_geometry()
 	HRESULT to_ret = S_OK;
 
 	ID3DBlob* vsblob = NULL;
-	to_ret = compile_shader_from_file(L"shader.fx", "VS", "vs_4_0", &vsblob);
+	to_ret = compile_shader_from_file(L"shader.fx", "vertex_shader_func", "vs_4_0", &vsblob);
 	if(FAILED(to_ret))
 	{
 		grapgics_test_logger->critical("cannot compile FX file");
@@ -342,9 +356,9 @@ inline HRESULT init_geometry()
 			D3D11_INPUT_PER_VERTEX_DATA, 
 			0
 		},{ 
-			"COLOR",
+			"NORMAL",
 			0,
-			DXGI_FORMAT_R32G32B32A32_FLOAT, 
+			DXGI_FORMAT_R32G32B32_FLOAT, 
 			0,
 			12, 
 			D3D11_INPUT_PER_VERTEX_DATA,
@@ -368,7 +382,7 @@ inline HRESULT init_geometry()
 	immediate_context->IASetInputLayout(vertex_layout);
 
 	ID3DBlob* psblob = NULL;
-	to_ret = compile_shader_from_file(L"shader.fx", "PS", "ps_4_0", &psblob);
+	to_ret = compile_shader_from_file(L"shader.fx", "pixel_shader_func", "ps_4_0", &psblob);
 	if(FAILED(to_ret))
 	{
 		grapgics_test_logger->critical("cannot compile PS file");
@@ -380,20 +394,57 @@ inline HRESULT init_geometry()
 	if (FAILED(to_ret))
 		return to_ret;
 
+	psblob = NULL;
+	to_ret = compile_shader_from_file(L"shader.fx", "pixel_shader_solid_func", "ps_4_0", &psblob);
+	if(FAILED(to_ret))
+	{
+		grapgics_test_logger->critical("cannot compile PSSolid file");
+		return to_ret;
+	}
+
+	to_ret = d3d_device->CreatePixelShader(psblob->GetBufferPointer(), psblob->GetBufferSize(), NULL, &pixel_shader_solid);
+	psblob->Release();
+	if (FAILED(to_ret))
+		return to_ret;
+
 	using namespace DirectX;
 	SimpleVertex vertices[] = 
-		{	
-			{XMFLOAT3{ 0.f, 1.5f, 0.f} , XMFLOAT4{1.f, 1.f, 0.f, 1.f}},
-			{XMFLOAT3{-1.f, 0.f, -1.f} , XMFLOAT4{0.f, 1.f, 0.f, 1.f}},
-			{XMFLOAT3{ 1.f, 0.f, -1.f} , XMFLOAT4{1.f, 0.f, 0.f, 1.f}},
-			{XMFLOAT3{-1.f, 0.f,  1.f} , XMFLOAT4{0.f, 1.f, 1.f, 1.f}},
-			{XMFLOAT3{ 1.f, 0.f,  1.f} , XMFLOAT4{1.f, 0.f, 1.f, 1.f}},
-		};
+	{	/* координати | нормаль */	
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f),      XMFLOAT3(0.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f),     XMFLOAT3(0.0f, -1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f),      XMFLOAT3(0.0f, -1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f),      XMFLOAT3(0.0f, -1.0f, 0.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f),      XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f),     XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f),      XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f),      XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f),     XMFLOAT3(0.0f, 0.0f, -1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f),      XMFLOAT3(0.0f, 0.0f, -1.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f),      XMFLOAT3(0.0f, 0.0f, -1.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f),      XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+	};
 
 	D3D11_BUFFER_DESC bd;
 	ZeroMemory(&bd, sizeof(bd));
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(SimpleVertex) * 5;
+	bd.ByteWidth = sizeof(SimpleVertex) * 24;
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER; 
 	bd.CPUAccessFlags = 0;
 
@@ -407,17 +458,27 @@ inline HRESULT init_geometry()
 
 	WORD indices[] =
 	{
-		0,2,1, 
-		0,3,4, 
-		0,1,3, 
-		0,4,2, 
+		3,1,0,
+		2,1,3,
 
-		1,2,3, 
-		2,4,3, 
+		6,4,5,
+		7,4,6,
+
+		11,9,8,
+		10,9,11,
+
+		14,12,13,
+		15,12,14,
+
+		19,17,16,
+		18,17,19,
+
+		22,20,21,
+		23,20,22
 	};
 	ZeroMemory(&bd, sizeof(bd));
 	bd.Usage = D3D11_USAGE_DEFAULT; 
-	bd.ByteWidth = sizeof(WORD) * 18;
+	bd.ByteWidth = sizeof(WORD) * 36;
 	bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	bd.CPUAccessFlags = 0;
 	ZeroMemory(&init_data, sizeof(init_data)); 
@@ -453,7 +514,7 @@ inline HRESULT init_matrixes(const core::window& window)
 
 	world = XMMatrixIdentity();
 
-	auto eye		= XMVectorSet(0.f, 1.f, -8.f, 0.f);
+	auto eye		= XMVectorSet(0.f, 41.f, -10.f, 0.f);
 	auto at		= XMVectorSet(0.f, 1.f, 0.f, 0.f);
 	auto up		= XMVectorSet(0.f, 1.f, 0.f, 0.f);
 	view = XMMatrixLookAtLH(eye, at, up);
@@ -468,13 +529,11 @@ inline HRESULT init_matrixes(const core::window& window)
 	return S_OK;
 }
 
-inline void set_matrixes(float angle)
+inline void update_light()
 {
-	using namespace DirectX;
-	static float t = 0.f;
 	if(driver_type == D3D_DRIVER_TYPE_REFERENCE)
 	{
-		t += (float)XM_PI * 0.0125f;
+		t += DirectX::XM_PI * 0.0125f;
 	}
 	else
 	{
@@ -482,32 +541,68 @@ inline void set_matrixes(float angle)
 		DWORD time_cur = GetTickCount();
 		if (time_start == 0)
 			time_start = time_cur;
-		t = (float)(time_cur - time_start) / 1000.f;
+		t = (time_cur - time_start) / 1000.f;
 	}
 
-	// матриця-орбіта: позиція об'єкта
-	auto orbit = XMMatrixRotationY(-t + angle);
-	// матриця-срін: повертаємо об'єкт навколо своєї осі
-	auto spin = XMMatrixRotationY(t * 2);
-	// матриця-позиція: переміщення на 3 одиниці вліво від початку координат
-	auto translate = XMMatrixTranslation(-3.f, 0.f, 0.f);
-	// матриця-маштаб: скейлимо трикутник в половину рази
-	auto scale = XMMatrixScaling(.5f, .5f, .5f);
+	// Встановлюємо початкові координати джерел світла.
+	// потім за допомоною змінної t будемо шукати їх поточні координати
+	light_dirs[0] = DirectX::XMFLOAT4(-0.577f, 0.577f, -0.577f, 1.0f);
+	light_dirs[1] = DirectX::XMFLOAT4(0.0f, 0.0f, -1.0f, 1.0f);
 
-	// трикутник знаходиться в центрі, кординати 0,0,0
-	// Сжимаємо -> повертаємо(ще не було переміщення) -> переносимо вліво ->
-	// -> знову повертаємо(відносно 0), так 6 трикутників зможуть розташуватися на екрані рівномірно
-	world = scale * spin * translate * orbit;
+	// Встановлюємо білий колір для джерела 1, та червоний для джерела 2
+	light_colors[0] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	light_colors[1] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
 
-	ConstantBuffer cb;
-	cb.world = XMMatrixTranspose(world);
-	cb.view = XMMatrixTranspose(view);
-	cb.projection = XMMatrixTranspose(projection);
-	immediate_context->UpdateSubresource(constant_buffer, 
-		0, NULL, 
-		&cb, 
-		0, 0);
+	///////////////
+	// За допомогою трансформацій повертаємо 2-ге джерело світла
+	DirectX::XMMATRIX rotate = DirectX::XMMatrixRotationY(-2.f * t);
+	DirectX::XMVECTOR light_dir = DirectX::XMLoadFloat4(&light_dirs[1]);
+	light_dir = DirectX::XMVector3Transform(light_dir, rotate);
+	DirectX::XMStoreFloat4(&light_dirs[1], light_dir);
+
+	// За допомогою трансформацій повертаємо 1-ше джерело світла
+	rotate = DirectX::XMMatrixRotationY(0.5f * t);
+	light_dir = DirectX::XMLoadFloat4(&light_dirs[0]);
+	light_dir = DirectX::XMVector3Transform(light_dir, rotate);
+	DirectX::XMStoreFloat4(&light_dirs[0], light_dir);
+	//////////////
+	/// Послідовність дій: створюємо матрицю повороту ->
+	/// -> завантаєужмо в змінну-вектор початкову позацію джерела світла ->
+	///	-> трансфориуємо позицію відповідно до матриці ->
+	///	-> функція XMStoreFloat4 копіює кординати із розширеного формату(вектора) в float4
 }
+
+inline void update_matrix(UINT light_index)
+{
+	using namespace DirectX;
+	if (light_index == MX_SETWORLD)
+	{
+		world = DirectX::XMMatrixRotationAxis(DirectX::XMVectorSet(1.f, 1.f, 1.f, 0.f), t);
+		light_index = 0;
+	}
+	else if (light_index < 2)
+	{
+		world = DirectX::XMMatrixTranslationFromVector(
+			5.0f * DirectX::XMLoadFloat4(&light_dirs[light_index]));
+		XMMATRIX light_scale = XMMatrixScaling(0.2f, 0.2f, 0.2f);
+		world = light_scale * world;
+	}
+	else
+		light_index = 0;
+
+	ConstantBuffer cb1;
+	cb1.world = XMMatrixTranspose(world);
+	cb1.view = XMMatrixTranspose(view);
+	cb1.projection = XMMatrixTranspose(projection);
+	cb1.light_dir[0] = light_dirs[0];
+	cb1.light_dir[1] = light_dirs[1];
+	cb1.light_color[0] = light_colors[0];
+	cb1.light_color[1] = light_colors[1];
+	cb1.output_color = light_colors[light_index];
+	immediate_context->UpdateSubresource(constant_buffer, 0, NULL, &cb1, 0, 0);
+}
+
+
 inline void cleanup_device()
 {
 	if (immediate_context) 
@@ -540,17 +635,24 @@ inline void render()
 	float clear_color[4] = { 0.f, 0.f, 1.f, 1.f };
 	immediate_context->ClearRenderTargetView(render_target_view, clear_color);
 
-	// очищаємо буфер глибини до 1(максимум)
 	immediate_context->ClearDepthStencilView(depth_stencil_view, D3D11_CLEAR_DEPTH, 1.f, 0);
 
-	for (int i = 0; i < 6; ++i)
+	update_light(); // встановка освітлення
+
+	// малюємо центральний куб
+	update_matrix(MX_SETWORLD);
+	immediate_context->VSSetShader(vertex_shader, NULL, 0);
+	immediate_context->VSSetConstantBuffers(0, 1, &constant_buffer);
+	immediate_context->PSSetShader(pixel_shader, NULL, 0);
+	immediate_context->PSSetConstantBuffers(0, 1, &constant_buffer);
+	immediate_context->DrawIndexed(36, 0, 0);
+
+	// малюємо джерела світла
+	immediate_context->PSSetShader(pixel_shader_solid, NULL, 0);
+	for(int m = 0; m < 2; ++m)
 	{
-		// тут малюємо кожен трикутник по віддільності на задньому буфері
-		set_matrixes(i * (3.14f * 2.f) / 6.f);
-		immediate_context->VSSetShader(vertex_shader, NULL, 0);
-		immediate_context->VSSetConstantBuffers(0, 1, &constant_buffer);
-		immediate_context->PSSetShader(pixel_shader, NULL, 0);
-		immediate_context->DrawIndexed(18, 0, 0);
+		update_matrix(m);
+		immediate_context->DrawIndexed(36, 0, 0);
 	}
 
 	swap_chain->Present(0, 0);

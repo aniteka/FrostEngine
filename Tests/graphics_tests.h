@@ -54,26 +54,30 @@ BOOST_AUTO_TEST_CASE(window_test)
 	//}
 }
 
+#define SAFE_RELEASE(x) if((x)) { (x)->Release(); x = NULL; }
 
-// В 5 уроці будуть 2 джерела світла
 #define MX_SETWORLD 0x101
 
 
 struct SimpleVertex
 {
 	DirectX::XMFLOAT3 pos;
-	DirectX::XMFLOAT3 normal; // нормаль вершини
+	DirectX::XMFLOAT2 Tex;		// Координати текстури
+	DirectX::XMFLOAT3 normal;	// нормаль вершини
 };
 
-// Структора константного буфера
-struct ConstantBuffer
+struct ConstantBufferMatrixes
 {
 	DirectX::XMMATRIX world;			// матриця основного світу
 	DirectX::XMMATRIX view;				// матриця камери
 	DirectX::XMMATRIX projection;		// матриця проекції
+};
+
+struct ConstantBufferLight
+{
 	DirectX::XMFLOAT4 light_dir[2];		// напрямок світла
 	DirectX::XMFLOAT4 light_color[2];	// колір джерела
-	DirectX::XMFLOAT4 output_color;		// активний колір TODO чо за колір
+	DirectX::XMFLOAT4 output_color;		// Колір квадрата по середині
 };
 
 inline D3D_DRIVER_TYPE			driver_type = D3D_DRIVER_TYPE_NULL;
@@ -82,10 +86,7 @@ inline ID3D11Device*			d3d_device = NULL;
 inline ID3D11DeviceContext*		immediate_context = NULL; 
 inline IDXGISwapChain*			swap_chain = NULL;
 inline ID3D11RenderTargetView*	render_target_view = NULL;
-// Буфер глибини(0 - дуже близько, 1 - безкінечно далеко)
-// Текстура буфера глибини TODO
 inline ID3D11Texture2D*			depth_stencil = NULL;
-// Буфер глибини
 inline ID3D11DepthStencilView*	depth_stencil_view = NULL;
 
 inline ID3D11VertexShader*		vertex_shader = NULL;
@@ -94,7 +95,8 @@ inline ID3D11PixelShader*		pixel_shader_solid = NULL; // Піксельний шейдер для д
 inline ID3D11InputLayout*		vertex_layout = NULL;
 inline ID3D11Buffer*			vertex_buffer = NULL;
 inline ID3D11Buffer*			index_buffer = NULL;
-inline ID3D11Buffer*			constant_buffer = NULL;
+inline ID3D11Buffer*			CBMatrixes = NULL; // Константний буфер з інформацією про матриці 
+inline ID3D11Buffer*			CBLight = NULL; // Константний буфер з інформацією про світло
 
 inline DirectX::XMMATRIX	world;
 inline DirectX::XMMATRIX	view;
@@ -104,18 +106,19 @@ inline FLOAT				t = 0.f;		// Змінна часу
 inline DirectX::XMFLOAT4 light_dirs[2];		// Напрямок світла (позиція джерел)
 inline DirectX::XMFLOAT4 light_colors[2];	// Колір джерел
 
+inline ID3D11ShaderResourceView*	texture_rv = NULL;		// Об'єкт текстури 
+inline ID3D11SamplerState*			sampler_linear = NULL;	// Параметри накладання текстури
+
 inline HRESULT init_device(const core::window& window);
 inline HRESULT init_geometry();
 inline HRESULT init_matrixes(const core::window& window);
 
-inline void update_light();						// оновлення параметрів світла
-// оновлення матриці світу
-// Встаеовлює матриці для поточного джерела світла (0-1) чи для світа(MX_SETWORLD)
+inline void update_light();
 inline void update_matrix(UINT light_index);	
-
-inline HRESULT compile_shader_from_file(const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model, ID3DBlob** blob_out);
-inline void cleanup_device();
 inline void render();
+
+inline void cleanup_device();
+inline HRESULT compile_shader_from_file(const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model, ID3DBlob** blob_out);
 
 BOOST_AUTO_TEST_CASE(graphics_test)
 {
@@ -186,7 +189,7 @@ inline HRESULT compile_shader_from_file( const WCHAR* file_name, LPCSTR entry_po
 		NULL);
 
 	if (FAILED(to_ret) && error_blob)
-		grapgics_test_logger->error("%s", static_cast<const char*>(error_blob->GetBufferPointer()));
+		grapgics_test_logger->error("{}", static_cast<const char*>(error_blob->GetBufferPointer()));
 	if (error_blob)
 		error_blob->Release();
 
@@ -326,7 +329,7 @@ inline HRESULT init_geometry()
 	HRESULT to_ret = S_OK;
 
 	ID3DBlob* vsblob = NULL;
-	to_ret = compile_shader_from_file(L"shader.fx", "vertex_shader_func", "vs_4_0", &vsblob);
+	to_ret = compile_shader_from_file(L"shader.fx", "VertexShaderFunc", "vs_4_0", &vsblob);
 	if(FAILED(to_ret))
 	{
 		grapgics_test_logger->critical("cannot compile FX file");
@@ -355,12 +358,20 @@ inline HRESULT init_geometry()
 			0,
 			D3D11_INPUT_PER_VERTEX_DATA, 
 			0
-		},{ 
+		},{
+			"TEXCOORD",
+			0,
+			DXGI_FORMAT_R32G32_FLOAT,
+			0,
+			12,
+			D3D11_INPUT_PER_VERTEX_DATA,
+			0
+		}, {
 			"NORMAL",
 			0,
 			DXGI_FORMAT_R32G32B32_FLOAT, 
 			0,
-			12, 
+			20, 
 			D3D11_INPUT_PER_VERTEX_DATA,
 			0
 		}
@@ -382,7 +393,7 @@ inline HRESULT init_geometry()
 	immediate_context->IASetInputLayout(vertex_layout);
 
 	ID3DBlob* psblob = NULL;
-	to_ret = compile_shader_from_file(L"shader.fx", "pixel_shader_func", "ps_4_0", &psblob);
+	to_ret = compile_shader_from_file(L"shader.fx", "PixelShaderFunc", "ps_4_0", &psblob);
 	if(FAILED(to_ret))
 	{
 		grapgics_test_logger->critical("cannot compile PS file");
@@ -395,7 +406,7 @@ inline HRESULT init_geometry()
 		return to_ret;
 
 	psblob = NULL;
-	to_ret = compile_shader_from_file(L"shader.fx", "pixel_shader_solid_func", "ps_4_0", &psblob);
+	to_ret = compile_shader_from_file(L"shader.fx", "PixelShaderSolidFunc", "ps_4_0", &psblob);
 	if(FAILED(to_ret))
 	{
 		grapgics_test_logger->critical("cannot compile PSSolid file");
@@ -409,36 +420,36 @@ inline HRESULT init_geometry()
 
 	using namespace DirectX;
 	SimpleVertex vertices[] = 
-	{	/* координати | нормаль */	
-		{ XMFLOAT3(-1.0f, 1.0f, -1.0f),      XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+	{	/* координаты X, Y, Z            координаты текстры tu, tv   нормаль X, Y, Z        */
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f),      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f)},
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f)},
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f)},
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f)},
 
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f),     XMFLOAT3(0.0f, -1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f),      XMFLOAT3(0.0f, -1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, -1.0f, 1.0f),      XMFLOAT3(0.0f, -1.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f),     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f)},
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f),      XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, -1.0f, 0.0f)},
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f)},
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f),      XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f)},
 
-		{ XMFLOAT3(-1.0f, -1.0f, 1.0f),      XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f),     XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, -1.0f),      XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f),      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f)},
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f),     XMFLOAT2(1.0f, 0.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f)},
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f),      XMFLOAT2(1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f)},
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f)},
 
-		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f),      XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT2(0.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f)},
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f),      XMFLOAT2(1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f)},
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f)},
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f)},
 
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f),     XMFLOAT3(0.0f, 0.0f, -1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f),      XMFLOAT3(0.0f, 0.0f, -1.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, -1.0f),      XMFLOAT3(0.0f, 0.0f, -1.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f),     XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f)},
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f),      XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, -1.0f)},
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f)},
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f),      XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f)},
 
-		{ XMFLOAT3(-1.0f, -1.0f, 1.0f),      XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f),      XMFLOAT2(0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f)},
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT2(1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 1.0f)},
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT2(1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f)},
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT2(0.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f)},
 	};
 
 	D3D11_BUFFER_DESC bd;
@@ -497,10 +508,43 @@ inline HRESULT init_geometry()
 
 	ZeroMemory(&bd, sizeof(bd));
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(ConstantBuffer);
+	bd.ByteWidth = sizeof(ConstantBufferMatrixes);
 	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	bd.CPUAccessFlags = 0;
-	to_ret = d3d_device->CreateBuffer(&bd, NULL, &constant_buffer);
+	to_ret = d3d_device->CreateBuffer(&bd, NULL, &CBMatrixes);
+	if (FAILED(to_ret))
+		return to_ret;
+
+	ZeroMemory(&bd, sizeof(bd));
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.ByteWidth = sizeof(ConstantBufferLight);
+	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	bd.CPUAccessFlags = 0;
+	to_ret = d3d_device->CreateBuffer(&bd, NULL, &CBLight);
+	if (FAILED(to_ret))
+		return to_ret;
+
+	// Підгружаємо текстуру
+	to_ret = D3DX11CreateShaderResourceViewFromFile(
+		d3d_device,
+		L"testPhoto.dds", // TODO
+		NULL,
+		NULL,
+		&texture_rv,
+		NULL);
+	if (FAILED(to_ret))
+		return to_ret;
+
+	D3D11_SAMPLER_DESC sampler_desc;
+	ZeroMemory(&sampler_desc, sizeof(sampler_desc));
+	sampler_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;	// Тип фільтрації
+	sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;		// Задаємо координати
+	sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampler_desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	sampler_desc.MinLOD = 0;
+	sampler_desc.MaxLOD = D3D11_FLOAT32_MAX;
+	to_ret = d3d_device->CreateSamplerState(&sampler_desc, &sampler_linear);
 	if (FAILED(to_ret))
 		return to_ret;
 
@@ -514,7 +558,7 @@ inline HRESULT init_matrixes(const core::window& window)
 
 	world = XMMatrixIdentity();
 
-	auto eye		= XMVectorSet(0.f, 41.f, -10.f, 0.f);
+	auto eye		= XMVectorSet(0.f, 12.f, -10.f, 0.f);
 	auto at		= XMVectorSet(0.f, 1.f, 0.f, 0.f);
 	auto up		= XMVectorSet(0.f, 1.f, 0.f, 0.f);
 	view = XMMatrixLookAtLH(eye, at, up);
@@ -528,7 +572,6 @@ inline HRESULT init_matrixes(const core::window& window)
 
 	return S_OK;
 }
-
 inline void update_light()
 {
 	if(driver_type == D3D_DRIVER_TYPE_REFERENCE)
@@ -571,7 +614,6 @@ inline void update_light()
 	///	-> трансфориуємо позицію відповідно до матриці ->
 	///	-> функція XMStoreFloat4 копіює кординати із розширеного формату(вектора) в float4
 }
-
 inline void update_matrix(UINT light_index)
 {
 	using namespace DirectX;
@@ -590,45 +632,39 @@ inline void update_matrix(UINT light_index)
 	else
 		light_index = 0;
 
-	ConstantBuffer cb1;
-	cb1.world = XMMatrixTranspose(world);
-	cb1.view = XMMatrixTranspose(view);
-	cb1.projection = XMMatrixTranspose(projection);
-	cb1.light_dir[0] = light_dirs[0];
-	cb1.light_dir[1] = light_dirs[1];
-	cb1.light_color[0] = light_colors[0];
-	cb1.light_color[1] = light_colors[1];
-	cb1.output_color = light_colors[light_index];
-	immediate_context->UpdateSubresource(constant_buffer, 0, NULL, &cb1, 0, 0);
+	ConstantBufferMatrixes cb1{
+		.world = XMMatrixTranspose(world),
+		.view = XMMatrixTranspose(view),
+		.projection = XMMatrixTranspose(projection)
+	};
+	ConstantBufferLight cb2{
+		.light_dir = { light_dirs[0], light_dirs[1]},
+		.light_color = {light_colors[0], light_colors[1]},
+		.output_color = light_colors[light_index]
+	};
+	immediate_context->UpdateSubresource(CBMatrixes, 0, NULL, &cb1, 0, 0);
+	immediate_context->UpdateSubresource(CBLight, 0, NULL, &cb2, 0, 0);
 }
-
-
 inline void cleanup_device()
 {
 	if (immediate_context) 
 		immediate_context->ClearState();
-	if (constant_buffer)
-		constant_buffer->Release();
-	if (vertex_buffer) 
-		vertex_buffer->Release();
-	if (index_buffer)
-		index_buffer->Release();
-	if (vertex_layout)
-		vertex_layout->Release();
-	if (vertex_shader)
-		vertex_shader->Release();
-	if (depth_stencil)
-		depth_stencil->Release();
-	if (depth_stencil_view)
-		depth_stencil_view->Release();
-	if (render_target_view)
-		render_target_view->Release();
-	if (swap_chain)
-		swap_chain->Release();
-	if (immediate_context)
-		immediate_context->Release();
-	if (d3d_device)
-		d3d_device->Release();
+	SAFE_RELEASE(sampler_linear);
+	SAFE_RELEASE(texture_rv);
+	SAFE_RELEASE(CBMatrixes);
+	SAFE_RELEASE(CBLight);
+	SAFE_RELEASE(vertex_buffer);
+	SAFE_RELEASE(index_buffer);
+	SAFE_RELEASE(vertex_layout);
+	SAFE_RELEASE(vertex_shader);
+	SAFE_RELEASE(pixel_shader_solid);
+	SAFE_RELEASE(pixel_shader);
+	SAFE_RELEASE(depth_stencil);
+	SAFE_RELEASE(depth_stencil_view);
+	SAFE_RELEASE(render_target_view);
+	SAFE_RELEASE(swap_chain);
+	SAFE_RELEASE(immediate_context);
+	SAFE_RELEASE(d3d_device);
 }
 inline void render()
 {
@@ -639,21 +675,24 @@ inline void render()
 
 	update_light(); // встановка освітлення
 
-	// малюємо центральний куб
-	update_matrix(MX_SETWORLD);
 	immediate_context->VSSetShader(vertex_shader, NULL, 0);
-	immediate_context->VSSetConstantBuffers(0, 1, &constant_buffer);
-	immediate_context->PSSetShader(pixel_shader, NULL, 0);
-	immediate_context->PSSetConstantBuffers(0, 1, &constant_buffer);
-	immediate_context->DrawIndexed(36, 0, 0);
+	immediate_context->VSSetConstantBuffers(0, 1, &CBMatrixes);
+	immediate_context->VSSetConstantBuffers(1, 1, &CBLight);
+	immediate_context->PSSetConstantBuffers(0, 1, &CBMatrixes);
+	immediate_context->PSSetConstantBuffers(1, 1, &CBLight);
+	immediate_context->PSSetShaderResources(0, 1, &texture_rv);
+	immediate_context->PSSetSamplers(0, 1, &sampler_linear);
 
-	// малюємо джерела світла
 	immediate_context->PSSetShader(pixel_shader_solid, NULL, 0);
 	for(int m = 0; m < 2; ++m)
 	{
 		update_matrix(m);
 		immediate_context->DrawIndexed(36, 0, 0);
 	}
+
+	update_matrix(MX_SETWORLD);
+	immediate_context->PSSetShader(pixel_shader, NULL, 0);
+	immediate_context->DrawIndexed(36, 0, 0);
 
 	swap_chain->Present(0, 0);
 }

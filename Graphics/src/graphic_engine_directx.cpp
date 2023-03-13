@@ -6,75 +6,37 @@
 #include <D3DX11.h>
 #include <d3dcompiler.h>
 
-ID3DBlob* compile_shader_from_file_runtime( const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model )
-{
-	DWORD shader_flags = D3DCOMPILE_ENABLE_STRICTNESS;
-	ID3DBlob* error_blob;
-	ID3DBlob* to_ret;
-	const auto err = D3DX11CompileFromFile(
-		file_name,
-		nullptr,
-		nullptr,
-		entry_point,
-		shader_model,
-		shader_flags,
-		0,
-		nullptr,
-		&to_ret,
-		&error_blob,
-		nullptr);
+ID3DBlob* compile_shader_from_file_runtime(const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model);
+ID3DBlob* compile_shader_from_memory_runtime(LPCSTR code, size_t code_len, LPCSTR entry_point, LPCSTR shader_model);
 
-	if(FAILED(err))
-	{
-		std::string err_msg = "Failed to compile shader";
-		if (error_blob)
-		{
-			err_msg = static_cast<const char*>(error_blob->GetBufferPointer());
-			error_blob->Release();
-		}
-		if (to_ret)
-			to_ret->Release();
-		throw core::exceptions::graphics_exception(err_msg, err);
-	}
+/**
+ * \brief 
+ * \param code_str string with code
+ * \param entry_point_str like "VertexShaderFunc"
+ * \param shader_model_str like "vs_4_1"
+ * \param array_map std::map like std::map<core::string_t, ID3D11VertexShader>
+ * \param shader_name ctext_t, should use CTEXT macro, example: CTEXT("SimpleVertexShader")
+ * \param device ID3D11Device pointer
+ * \param shader_load_type like Vertex, Pixel
+ */
+#define COMPILE_CREATE_LOAD_SHADER_FROM_MEMORY(code_str, entry_point_str, shader_model_str, array_map, shader_name, device, shader_load_type)\
+	{\
+	auto shader_blob = compile_shader_from_memory_runtime(code_str, sizeof(code_str) / sizeof(char), entry_point_str, shader_model_str);\
+	auto err = device->Create##shader_load_type##Shader(\
+		shader_blob->GetBufferPointer(),\
+		shader_blob->GetBufferSize(),\
+		nullptr,\
+		&array_map[shader_name]);\
+	if(FAILED(err))\
+	{\
+		shader_blob->Release();\
+		throw exceptions::graphics_exception("failed to create shader", err);\
+	}}
 
-	return to_ret;
-}
 
-ID3DBlob* compile_shader_from_memory_runtime(LPCSTR code, size_t code_len, LPCSTR entry_point, LPCSTR shader_model)
-{
-	DWORD shader_flags = D3DCOMPILE_ENABLE_STRICTNESS;
-	ID3DBlob* error_blob;
-	ID3DBlob* to_ret;
-	const auto err = D3DX11CompileFromMemory(
-		code,
-		code_len,
-		nullptr,
-		nullptr,
-		nullptr,
-		entry_point,
-		shader_model,
-		shader_flags,
-		0,
-		nullptr,
-		&to_ret,
-		&error_blob,
-		nullptr);
-
-	if(FAILED(err))
-	{
-		std::string err_msg = "Failed to compile shader";
-		if (error_blob)
-		{
-			err_msg = static_cast<const char*>(error_blob->GetBufferPointer());
-			error_blob->Release();
-		}
-		if (to_ret)
-			to_ret->Release();
-		throw core::exceptions::graphics_exception(err_msg, err);
-	}
-
-	return to_ret;
-}
+/////////////////////////////////////////////////////////////////
+//////////////////////////////CLASS//////////////////////////////
+/////////////////////////////////////////////////////////////////
 
 core::graphic_engine_directx::graphic_engine_directx(const info_t& info)
 	: m_render_window{ info.window }
@@ -115,7 +77,15 @@ void core::graphic_engine_directx::release_all()
 	com_release(m_swap_chain);
 	com_release(m_device_painter);
 	com_release(m_device);
+	for(auto& [_, shader] : m_vertex_shaders)
+	{
+		com_release(shader);
+	}
 }
+
+/////////////////////////////////////////////////////////////////
+////////////////////////////PRIVATE//////////////////////////////
+/////////////////////////////////////////////////////////////////
 
 void core::graphic_engine_directx::init_device(const info_t& info)
 {
@@ -203,14 +173,104 @@ void core::graphic_engine_directx::compile_vertex_shader()
 	})";
 	try
 	{
-	auto vertex_shader_blob = compile_shader_from_memory_runtime(
-		simple_vertex_shader, sizeof(simple_vertex_shader) / sizeof(char),
-		"VS", "vs_4_0");
+		//auto vertex_shader_blob = compile_shader_from_memory_runtime(
+		//	simple_vertex_shader, sizeof(simple_vertex_shader) / sizeof(char),
+		//	"VS", "vs_4_0");
+		//auto err = m_device->CreateVertexShader(
+		//	vertex_shader_blob->GetBufferPointer(),
+		//	vertex_shader_blob->GetBufferSize(),
+		//	nullptr,
+		//	&m_vertex_shaders[CTEXT("SimpleShader")]
+		//);
+		//if(FAILED(err))
+		//{
+		//	vertex_shader_blob->Release();
+		//	throw exceptions::graphics_exception("failed to create shader", err);
+		//}
+
+		COMPILE_CREATE_LOAD_SHADER_FROM_MEMORY(
+			simple_vertex_shader, 
+			"VS", 
+			"vs_4_0", 
+			m_vertex_shaders, 
+			CTEXT("SimpleShader"), 
+			m_device, 
+			Vertex)
 	}
 	catch (const std::exception& e)
 	{
 		printf("%s", e.what());
 		std::exit(-1);
 	}
+}
+
+ID3DBlob* compile_shader_from_file_runtime( const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model )
+{
+	DWORD shader_flags = D3DCOMPILE_ENABLE_STRICTNESS;
+	ID3DBlob* error_blob;
+	ID3DBlob* to_ret;
+	const auto err = D3DX11CompileFromFile(
+		file_name,
+		nullptr,
+		nullptr,
+		entry_point,
+		shader_model,
+		shader_flags,
+		0,
+		nullptr,
+		&to_ret,
+		&error_blob,
+		nullptr);
+
+	if(FAILED(err))
+	{
+		std::string err_msg = "Failed to compile shader";
+		if (error_blob)
+		{
+			err_msg = static_cast<const char*>(error_blob->GetBufferPointer());
+			error_blob->Release();
+		}
+		if (to_ret)
+			to_ret->Release();
+		throw core::exceptions::graphics_exception(err_msg, err);
+	}
+
+	return to_ret;
+}
+
+ID3DBlob* compile_shader_from_memory_runtime(LPCSTR code, size_t code_len, LPCSTR entry_point, LPCSTR shader_model)
+{
+	DWORD shader_flags = D3DCOMPILE_ENABLE_STRICTNESS;
+	ID3DBlob* error_blob;
+	ID3DBlob* to_ret;
+	const auto err = D3DX11CompileFromMemory(
+		code,
+		code_len,
+		nullptr,
+		nullptr,
+		nullptr,
+		entry_point,
+		shader_model,
+		shader_flags,
+		0,
+		nullptr,
+		&to_ret,
+		&error_blob,
+		nullptr);
+
+	if(FAILED(err))
+	{
+		std::string err_msg = "Failed to compile shader";
+		if (error_blob)
+		{
+			err_msg = static_cast<const char*>(error_blob->GetBufferPointer());
+			error_blob->Release();
+		}
+		if (to_ret)
+			to_ret->Release();
+		throw core::exceptions::graphics_exception(err_msg, err);
+	}
+
+	return to_ret;
 }
 

@@ -5,34 +5,79 @@
 #include <d3d11.h>
 #include <D3DX11.h>
 #include <d3dcompiler.h>
+#include <functional>
+#include <ranges>
+#include "shapes/shape_base.h"
 
-ID3DBlob* compile_shader_from_file_runtime(const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model);
-ID3DBlob* compile_shader_from_memory_runtime(LPCSTR code, size_t code_len, LPCSTR entry_point, LPCSTR shader_model);
+ID3DBlob* compile_shader_from_file_runtime( const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model )
+{
+	DWORD shader_flags = D3DCOMPILE_ENABLE_STRICTNESS;
+	ID3DBlob* error_blob;
+	ID3DBlob* to_ret;
+	const auto err = D3DX11CompileFromFile(
+		file_name,
+		nullptr,
+		nullptr,
+		entry_point,
+		shader_model,
+		shader_flags,
+		0,
+		nullptr,
+		&to_ret,
+		&error_blob,
+		nullptr);
 
-/**
- * \brief 
- * \param code_str string with code
- * \param entry_point_str like "VertexShaderFunc"
- * \param shader_model_str like "vs_4_1"
- * \param array_map std::map like std::map<core::string_t, ID3D11VertexShader>
- * \param shader_name ctext_t, should use CTEXT macro, example: CTEXT("SimpleVertexShader")
- * \param device ID3D11Device pointer
- * \param shader_load_type like Vertex, Pixel
- */
-#define COMPILE_CREATE_LOAD_SHADER_FROM_MEMORY(code_str, entry_point_str, shader_model_str, array_map, shader_name, device, shader_load_type)\
-	{\
-	auto shader_blob = compile_shader_from_memory_runtime(code_str, sizeof(code_str) / sizeof(char), entry_point_str, shader_model_str);\
-	auto err = device->Create##shader_load_type##Shader(\
-		shader_blob->GetBufferPointer(),\
-		shader_blob->GetBufferSize(),\
-		nullptr,\
-		&array_map[shader_name]);\
-	if(FAILED(err))\
-	{\
-		shader_blob->Release();\
-		throw exceptions::graphics_exception("failed to create shader", err);\
-	}}
+	if(FAILED(err))
+	{
+		std::string err_msg = "Failed to compile shader";
+		if (error_blob)
+		{
+			err_msg = static_cast<const char*>(error_blob->GetBufferPointer());
+			error_blob->Release();
+		}
+		if (to_ret)
+			to_ret->Release();
+		throw core::exceptions::graphics_exception(err_msg, err);
+	}
 
+	return to_ret;
+}
+
+ID3DBlob* compile_shader_from_memory_runtime(LPCSTR code, size_t code_len, LPCSTR entry_point, LPCSTR shader_model)
+{
+	DWORD shader_flags = D3DCOMPILE_ENABLE_STRICTNESS;
+	ID3DBlob* error_blob;
+	ID3DBlob* to_ret;
+	const auto err = D3DX11CompileFromMemory(
+		code,
+		code_len,
+		nullptr,
+		nullptr,
+		nullptr,
+		entry_point,
+		shader_model,
+		shader_flags,
+		0,
+		nullptr,
+		&to_ret,
+		&error_blob,
+		nullptr);
+
+	if(FAILED(err))
+	{
+		std::string err_msg = "Failed to compile shader";
+		if (error_blob)
+		{
+			err_msg = static_cast<const char*>(error_blob->GetBufferPointer());
+			error_blob->Release();
+		}
+		if (to_ret)
+			to_ret->Release();
+		throw core::exceptions::graphics_exception(err_msg, err);
+	}
+
+	return to_ret;
+}
 
 /////////////////////////////////////////////////////////////////
 //////////////////////////////CLASS//////////////////////////////
@@ -44,7 +89,75 @@ core::graphic_engine_directx::graphic_engine_directx(const info_t& info)
 	init_device(info);
 	init_posterior_buffer(info);
 	init_viewport(info);
-	compile_vertex_shader();
+
+	HRESULT err = S_OK;
+
+	char code[] = R"(
+	float4 VS(float4 Pos : POSITION, float2 Texture : TEXCOORD0, float3 norm : NORMAL) : SV_POSITION
+	{
+		return float4(Pos.xyz, 1.f);
+	}
+
+	float4 PS(float4 Pos : SV_POSITION) : SV_Target
+	{
+		return float4(0.f, 0.f, 0.f, 1.f);
+	}
+	)";
+
+	auto vs_blob =
+		compile_shader_from_memory_runtime(code, std::size(code), "VS", "vs_4_1");
+	err = m_device->CreateVertexShader(
+		vs_blob->GetBufferPointer(),
+		vs_blob->GetBufferSize(),
+		nullptr,
+		&m_dev_vertex_shader
+	);
+	if(FAILED(err))
+		throw exceptions::graphics_exception("Error while creating vertex shader", err);
+
+	D3D11_INPUT_ELEMENT_DESC layout[] =
+	{
+		{"POSITION",
+		0,
+		DXGI_FORMAT_R32G32B32_FLOAT,
+		0,0,
+		D3D11_INPUT_PER_VERTEX_DATA,
+		0},
+		{"TEXCOORD",
+			0,
+			DXGI_FORMAT_R32G32_FLOAT,
+			0, 12,
+			D3D11_INPUT_PER_VERTEX_DATA,
+			0},
+		{"NORMAL",
+		0,
+		DXGI_FORMAT_R32G32B32_FLOAT,
+		0,12 + 8,
+		D3D11_INPUT_PER_VERTEX_DATA,
+		0},
+	};
+	auto layout_size = ARRAYSIZE(layout);
+
+	err = m_device->CreateInputLayout(layout, layout_size, 
+		vs_blob->GetBufferPointer(), 
+		vs_blob->GetBufferSize(), 
+		&m_dev_input_layout);
+	vs_blob->Release();
+	if(FAILED(err))
+		throw exceptions::graphics_exception("Error while creating input layout", err);
+	m_device_painter->IASetInputLayout(m_dev_input_layout);
+
+	auto ps_blob
+		= compile_shader_from_memory_runtime(code, std::size(code), "PS", "ps_4_1");
+	err = m_device->CreatePixelShader(
+		ps_blob->GetBufferPointer(),
+		ps_blob->GetBufferSize(),
+		nullptr,
+		&m_dev_pixel_shader
+	);
+	ps_blob->Release();
+	if(FAILED(err))
+		throw exceptions::graphics_exception("Error while creating pixel shader", err);
 }
 
 core::graphic_engine_directx::~graphic_engine_directx()
@@ -55,6 +168,34 @@ core::graphic_engine_directx::~graphic_engine_directx()
 void core::graphic_engine_directx::render()
 {
 	m_device_painter->ClearRenderTargetView(m_posterior_buffer, m_clear_color.data());
+
+	for (const auto& shape : m_shape_array)
+	{
+		m_device_painter->VSSetShader(m_dev_vertex_shader, nullptr, 0);
+		m_device_painter->PSSetShader(m_dev_pixel_shader, nullptr, 0);
+
+		D3D11_BUFFER_DESC bd;
+		ZeroMemory(&bd, sizeof(bd));
+		bd.Usage = D3D11_USAGE_DEFAULT;
+		bd.ByteWidth = sizeof(decltype(shape->m_vertex_array)::value_type) * shape->m_vertex_array.size();
+		bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		bd.CPUAccessFlags = 0;
+
+		D3D11_SUBRESOURCE_DATA srd;
+		ZeroMemory(&srd, sizeof(srd));
+		srd.pSysMem = shape->m_vertex_array.data();
+
+		ID3D11Buffer* buff;
+		unsigned stride = sizeof(core::shape::vertex);
+		unsigned offset = 0;
+		auto err = m_device->CreateBuffer(&bd, &srd, &buff);
+		if (FAILED(err))
+			throw exceptions::graphics_exception("Create Buffer error", err);
+		m_device_painter->IASetVertexBuffers(0, 1, &buff, &stride, &offset);
+		m_device_painter->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		m_device_painter->DrawIndexed(shape->m_vertex_array.size(), 0, 0);
+	}
 
 	m_swap_chain->Present(1, 0);
 }
@@ -69,6 +210,52 @@ void core::graphic_engine_directx::set_clear_color(const color_t& color)
 	m_clear_color = color;
 }
 
+std::any core::graphic_engine_directx::get_native()
+{
+	return core::graphic_engine_directx_native{
+		.device = m_device,
+		.device_painter = m_device_painter,
+		.swap_chain = m_swap_chain,
+	};
+}
+
+void core::graphic_engine_directx::add_shape(core::graphic_engine_base::shape_ptr_t shape)
+{
+	m_shape_array.emplace_back(shape);
+}
+
+void core::graphic_engine_directx::remove_shape(core::graphic_engine_base::shape_ptr_t shape)
+{
+	const auto to_erase =
+	std::ranges::find_if(
+		m_shape_array, 
+		[&shape](auto t) { return t.get() == shape.get(); });
+
+	m_shape_array.erase(to_erase);
+}
+
+void core::graphic_engine_directx::remove_shapes_with_id(const core::id_t& shapes_id)
+{
+	auto [beg, end] = std::ranges::remove_if(m_shape_array, [](const shape_ptr_t& arg) { return false; });
+	m_shape_array.erase(beg, end);
+}
+
+core::graphic_engine_base::shape_array_t core::graphic_engine_directx::get_shapes_by_id(
+	const core::id_t& shapes_id)
+{
+	return m_shape_array
+		| std::views::filter([&shapes_id](const shape_ptr_t& arg) { return arg->get_id() == shapes_id; })
+		| std::ranges::to<shape_array_t>();
+}
+
+core::graphic_engine_base::shape_array_t core::graphic_engine_directx::get_shape_by_class(const std::type_info& class_type)
+{
+	return m_shape_array
+		| std::views::filter([&class_type](const shape_ptr_t& arg)
+			{return typeid(*arg) == class_type; })
+		| std::ranges::to<shape_array_t>();
+}
+
 void core::graphic_engine_directx::release_all()
 {
 	if (m_device_painter)
@@ -77,10 +264,6 @@ void core::graphic_engine_directx::release_all()
 	com_release(m_swap_chain);
 	com_release(m_device_painter);
 	com_release(m_device);
-	for(auto& [_, shader] : m_vertex_shaders)
-	{
-		com_release(shader);
-	}
 }
 
 /////////////////////////////////////////////////////////////////
@@ -162,115 +345,5 @@ void core::graphic_engine_directx::init_viewport(const info_t& info)
 	vp.TopLeftY = 0;
 
 	m_device_painter->RSSetViewports(1, &vp);
-}
-
-void core::graphic_engine_directx::compile_vertex_shader()
-{
-	const char simple_vertex_shader[] = R"(
-	float4 VS(float4 Pos : POSITION) : SV_POSITION
-	{
-		return Pos;
-	})";
-	try
-	{
-		//auto vertex_shader_blob = compile_shader_from_memory_runtime(
-		//	simple_vertex_shader, sizeof(simple_vertex_shader) / sizeof(char),
-		//	"VS", "vs_4_0");
-		//auto err = m_device->CreateVertexShader(
-		//	vertex_shader_blob->GetBufferPointer(),
-		//	vertex_shader_blob->GetBufferSize(),
-		//	nullptr,
-		//	&m_vertex_shaders[CTEXT("SimpleShader")]
-		//);
-		//if(FAILED(err))
-		//{
-		//	vertex_shader_blob->Release();
-		//	throw exceptions::graphics_exception("failed to create shader", err);
-		//}
-
-		COMPILE_CREATE_LOAD_SHADER_FROM_MEMORY(
-			simple_vertex_shader, 
-			"VS", 
-			"vs_4_0", 
-			m_vertex_shaders, 
-			CTEXT("SimpleShader"), 
-			m_device, 
-			Vertex)
-	}
-	catch (const std::exception& e)
-	{
-		printf("%s", e.what());
-		std::exit(-1);
-	}
-}
-
-ID3DBlob* compile_shader_from_file_runtime( const WCHAR* file_name, LPCSTR entry_point, LPCSTR shader_model )
-{
-	DWORD shader_flags = D3DCOMPILE_ENABLE_STRICTNESS;
-	ID3DBlob* error_blob;
-	ID3DBlob* to_ret;
-	const auto err = D3DX11CompileFromFile(
-		file_name,
-		nullptr,
-		nullptr,
-		entry_point,
-		shader_model,
-		shader_flags,
-		0,
-		nullptr,
-		&to_ret,
-		&error_blob,
-		nullptr);
-
-	if(FAILED(err))
-	{
-		std::string err_msg = "Failed to compile shader";
-		if (error_blob)
-		{
-			err_msg = static_cast<const char*>(error_blob->GetBufferPointer());
-			error_blob->Release();
-		}
-		if (to_ret)
-			to_ret->Release();
-		throw core::exceptions::graphics_exception(err_msg, err);
-	}
-
-	return to_ret;
-}
-
-ID3DBlob* compile_shader_from_memory_runtime(LPCSTR code, size_t code_len, LPCSTR entry_point, LPCSTR shader_model)
-{
-	DWORD shader_flags = D3DCOMPILE_ENABLE_STRICTNESS;
-	ID3DBlob* error_blob;
-	ID3DBlob* to_ret;
-	const auto err = D3DX11CompileFromMemory(
-		code,
-		code_len,
-		nullptr,
-		nullptr,
-		nullptr,
-		entry_point,
-		shader_model,
-		shader_flags,
-		0,
-		nullptr,
-		&to_ret,
-		&error_blob,
-		nullptr);
-
-	if(FAILED(err))
-	{
-		std::string err_msg = "Failed to compile shader";
-		if (error_blob)
-		{
-			err_msg = static_cast<const char*>(error_blob->GetBufferPointer());
-			error_blob->Release();
-		}
-		if (to_ret)
-			to_ret->Release();
-		throw core::exceptions::graphics_exception(err_msg, err);
-	}
-
-	return to_ret;
 }
 

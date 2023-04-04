@@ -1,12 +1,10 @@
 #pragma once
-#if !defined(WIN32)
-#error DirectX can not by used without Windows
-#endif
 
 #include "graphic_engine_base.h" 
 #include "d3dcommon.h"
-#include <map>
 #include <core/text.h>
+#include <core/memory.h>
+#include <d3d11.h>
 
 namespace core {class window; }
 class ID3D11Device;
@@ -17,44 +15,46 @@ class ID3D11VertexShader;
 
 namespace core
 {
+	struct graphic_engine_directx_native
+	{
+		ID3D11Device* device;
+		ID3D11DeviceContext* device_painter;
+		IDXGISwapChain* swap_chain;
+	};
+
 	class graphic_engine_directx final
 		: public graphic_engine_base
 	{
 	public:
 		explicit graphic_engine_directx(const info_t& info);
 		~graphic_engine_directx() override;
-		graphic_engine_directx(graphic_engine_directx&&) noexcept = default;
-		graphic_engine_directx& operator=(graphic_engine_directx&&) noexcept = default;
-
-		void render() override;
 
 		const color_t& get_clear_color() const override;
 		void set_clear_color(const color_t& color) override;
 
+		[[nodiscard]] std::any get_native() override;
 
+		void add_shape(shape_ptr_t shape) override;
+		void remove_shape(shape_ptr_t shape) override;
+		void remove_shapes_with_id(const core::id_t& shapes_id) override;
+		shape_array_t get_shapes_by_id(const core::id_t& shapes_id) override;
+		shape_array_t get_shape_by_class(const std::type_info& class_type) override;
+
+		void render() override;
 
 	protected:
 		const window& m_render_window;
 
-		// create most of resources
 		ID3D11Device* m_device = nullptr;
-
-		// all about interaction with shaders, and painting
 		ID3D11DeviceContext* m_device_painter = nullptr;
-
-		// realize one or several painting surfaces
-		// need for creating m_posterior_buffer
 		IDXGISwapChain* m_swap_chain = nullptr;
 
-		// Pointer to buffer, all interactions with him made with m_device_painter
 		ID3D11RenderTargetView* m_posterior_buffer = nullptr;
 
 		D3D_FEATURE_LEVEL m_future_level = D3D_FEATURE_LEVEL_11_1;
-
 		color_t m_clear_color = { 1.f, 1.f, 1.f, 1.f };
 
-		std::map<string_view_t, ID3D11VertexShader*> m_vertex_shaders;
-
+		core::dynamic_array_t<core::sptr_t<core::shape::shape_base>> m_shape_array;
 
 	private:
 		void release_all();
@@ -71,13 +71,12 @@ namespace core
 		void init_device(const info_t& info);
 		void init_posterior_buffer(const info_t& info);
 		void init_viewport(const info_t& info);
-		void compile_vertex_shader();
-	};
 
-	struct graphics_info
-	{
-		const window& window;
-		unsigned max_fps = 60;
+	private:
+		//TODO dev, to del
+		ID3D11VertexShader* m_dev_vertex_shader;
+		ID3D11PixelShader* m_dev_pixel_shader;
+		ID3D11InputLayout* m_dev_input_layout;
 	};
 }
 

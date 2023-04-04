@@ -17,7 +17,7 @@ add_library(Lib INTERFACE
     "include/core/movable.h"   
     "include/core/text.h" 
     "include/core/exceptions.h"  
-    "include/core/log.h")
+    "include/core/log.h" "include/core/utilities.h" "include/core/memory.h")
 
 set_target_properties(Lib PROPERTIES 
     CXX_STANDARD 20

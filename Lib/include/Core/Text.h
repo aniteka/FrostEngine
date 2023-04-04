@@ -16,6 +16,7 @@ namespace core
 {
 	using string_t = std::basic_string<cchar_t, std::char_traits<cchar_t>, std::allocator<cchar_t>>;
 	using string_view_t = boost::basic_string_view<cchar_t, std::char_traits<cchar_t>>;
+	using id_t = string_t;
 }
 
 

@@ -13,12 +13,12 @@ add_library(Graphics STATIC
    "include/core/graphics/graphic_engine_base.h" 
    "include/core/graphics/graphic_engine_directx.h" 
    "src/graphic_engine_directx.cpp" 
-   "include/core/graphics/shapes/simple_triangle2d.h" 
-   "src/simple_triangle2d.cpp" "include/core/graphics/shapes/drawable.h")
+    
+        "include/core/graphics/shapes/shape_base.h" "src/shape_base.cpp")
 
 set_target_properties(Graphics PROPERTIES 
     FOLDER "Core"
-    CXX_STANDARD 20)
+    CXX_STANDARD 23)
 
 target_link_libraries(Graphics
     PUBLIC Boost::boost d3d11.lib Microsoft::D3DX11

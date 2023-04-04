@@ -6,9 +6,11 @@
 #include <optional>
 #include <core/graphics/graphic_engine_directx.h>
 
+#include "core/graphics/shapes/shape_base.h"
+
 BOOST_AUTO_TEST_SUITE(graphics_tests)
 
-BOOST_AUTO_TEST_CASE(MAIN)
+	BOOST_AUTO_TEST_CASE(MAIN)
 {
 	core::window main_window{
 		{
@@ -21,6 +23,13 @@ BOOST_AUTO_TEST_CASE(MAIN)
 		{
 			.window = main_window
 		} };
+	device.set_clear_color({ 0.2f, 0.2f, 0.8f, 1.f });
+
+	auto shape = std::make_shared<core::shape::shape_base>();
+	shape->add_vertex({{ -.5f, .5f, .2f }});
+	shape->add_vertex({{ .5f, .5f, .2f }});
+	shape->add_vertex({{ -.5f, -.5f, .2f }});
+	device.add_shape(shape);
 
 	MSG msg;
 	ZeroMemory(&msg, sizeof(msg));

@@ -38,7 +38,8 @@ namespace core
 		void remove_shape(shape_ptr_t shape) override;
 		void remove_shapes_with_id(const core::id_t& shapes_id) override;
 		shape_array_t get_shapes_by_id(const core::id_t& shapes_id) override;
-		shape_array_t get_shape_by_class(const std::type_info& class_type) override;
+		shape_array_t get_shapes_by_class(const std::type_info& class_type) override;
+		std::size_t get_shapes_count() const override;
 
 		void render() override;
 

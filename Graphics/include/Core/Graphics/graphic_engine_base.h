@@ -39,7 +39,8 @@ namespace core
 		virtual void remove_shape(shape_ptr_t shape) = 0;
 		virtual void remove_shapes_with_id(const core::id_t& shapes_id) = 0;
 		virtual shape_array_t get_shapes_by_id(const core::id_t& shapes_id) = 0;
-		virtual shape_array_t get_shape_by_class(const std::type_info& class_type) = 0;
+		virtual shape_array_t get_shapes_by_class(const std::type_info& class_type) = 0;
+		virtual std::size_t get_shapes_count() const = 0;
 
 		virtual void render() = 0;
 	};

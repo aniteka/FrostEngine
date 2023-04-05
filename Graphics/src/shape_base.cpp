@@ -44,7 +44,13 @@ void core::shape::shape_base::add_vertex(const core::shape::vertex& vertex)
 	m_vertex_array.push_back(vertex);
 }
 
-void core::shape::shape_base::set_fill_color(const core::color_t& color)
+void core::shape::shape_base::set_material(core::sptr_t<core::materials::material_base> material)
 {
-	m_fill_color = color;
+	m_material.swap(material);
 }
+
+core::sptr_t<core::materials::material_base> core::shape::shape_base::get_material() const
+{
+	return m_material;
+}
+

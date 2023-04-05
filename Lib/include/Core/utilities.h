@@ -1,157 +1,216 @@
 #pragma once
-#include <stdexcept>
-#include <valarray>
+#define GENERATE_OP_1(OP, VAR1) \
+	self.##VAR1 OP##= other.##VAR1
+#define GENERATE_OP_2(OP, VAR1, VAR2) \
+	GENERATE_OP_1(OP, VAR1); \
+	GENERATE_OP_1(OP, VAR2); 
+#define GENERATE_OP_3(OP, VAR1, VAR2, VAR3) \
+	GENERATE_OP_1(OP, VAR1); \
+	GENERATE_OP_1(OP, VAR2); \
+	GENERATE_OP_1(OP, VAR3);
+#define GENERATE_OP_4(OP, VAR1, VAR2, VAR3, VAR4) \
+	GENERATE_OP_1(OP, VAR1); \
+	GENERATE_OP_1(OP, VAR2); \
+	GENERATE_OP_1(OP, VAR3); \
+	GENERATE_OP_1(OP, VAR4);
+
+#define GENERATE_OP_T_1(OP, OTHER, VAR1) \
+	self.##VAR1 OP##= OTHER
+#define GENERATE_OP_T_2(OP, OTHER, VAR1, VAR2) \
+	GENERATE_OP_T_1(OP, OTHER, VAR1); \
+	GENERATE_OP_T_1(OP, OTHER, VAR2); 
+#define GENERATE_OP_T_3(OP, OTHER, VAR1, VAR2, VAR3) \
+	GENERATE_OP_T_1(OP, OTHER, VAR1); \
+	GENERATE_OP_T_1(OP, OTHER, VAR2); \
+	GENERATE_OP_T_1(OP, OTHER, VAR3);
+#define GENERATE_OP_T_4(OP, OTHER, VAR1, VAR2, VAR3, VAR4) \
+	GENERATE_OP_T_1(OP, OTHER, VAR1); \
+	GENERATE_OP_T_1(OP, OTHER, VAR2); \
+	GENERATE_OP_T_1(OP, OTHER, VAR3); \
+	GENERATE_OP_T_1(OP, OTHER, VAR4);
+
+#define GENERATE_OPERATOR(OP, OTHER_T) \
+	friend self_t operator##OP (const self_t& self, const OTHER_T& other) \
+	{\
+		self_t to_ret(self);\
+		return to_ret OP##= other; \
+	}
+		
 
 namespace core
 {
 	template<typename T>
 	struct vector2base
 	{
+		using self_t = vector2base;
 		T x, y;
 
 		T* data() { return reinterpret_cast<T*>(this); }
 
-		friend vector2base& operator+=(vector2base& self, const vector2base& other)
+		friend self_t& operator+=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y) += std::tie(other.x, other.y);
+			GENERATE_OP_2(+, x, y);
 			return self;
 		}
-		friend vector2base& operator-=(vector2base& self, const vector2base& other)
+		friend self_t& operator-=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y) -= std::tie(other.x, other.y);
+			GENERATE_OP_2(-, x, y);
 			return self;
 		}
-		friend vector2base& operator*=(vector2base& self, const vector2base& other)
+		friend self_t& operator*=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y) *= std::tie(other.x, other.y);
+			GENERATE_OP_2(*, x, y);
 			return self;
 		}
-		friend vector2base& operator/=(vector2base& self, const vector2base& other)
+		friend self_t& operator/=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y) /= std::tie(other.x, other.y);
+			GENERATE_OP_2(/, x, y);
 			return self;
 		}
-
-		friend vector2base operator+(const vector2base& self, const vector2base& other)
+		friend self_t& operator+=(self_t& self, const T& other)
 		{
-			vector2base self1(self);
-			return self1 += other;
+			GENERATE_OP_T_2(+, other, x, y);
+			return self;
 		}
-		friend vector2base operator-(const vector2base& self, const vector2base& other)
+		friend self_t& operator-=(self_t& self, const T& other)
 		{
-			vector2base self1(self);
-			return self1 -= other;
+			GENERATE_OP_T_2(-, other, x, y);
+			return self;
 		}
-		friend vector2base operator*(const vector2base& self, const vector2base& other)
+		friend self_t& operator*=(self_t& self, const T& other)
 		{
-			vector2base self1(self);
-			return self1 *= other;
+			GENERATE_OP_T_2(*, other, x, y);
+			return self;
 		}
-		friend vector2base operator/(const vector2base& self, const vector2base& other)
+		friend self_t& operator/=(self_t& self, const T& other)
 		{
-			vector2base self1(self);
-			return self1 /= other;
+			GENERATE_OP_T_2(/, other, x, y);
+			return self;
 		}
+		GENERATE_OPERATOR(+, self_t)
+		GENERATE_OPERATOR(-, self_t)
+		GENERATE_OPERATOR(*, self_t)
+		GENERATE_OPERATOR(/, self_t)
+		GENERATE_OPERATOR(+, T)
+		GENERATE_OPERATOR(-, T)
+		GENERATE_OPERATOR(*, T)
+		GENERATE_OPERATOR(/, T)
 	};
 
 	template<typename T>
 	struct vector3base
 	{
+		using self_t = vector3base;
 		T x, y, z;
 
 		T* data() { return reinterpret_cast<T*>(this); }
 
-		friend vector3base& operator+=(vector3base& self, const vector3base& other)
+		friend self_t& operator+=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y, self.z) += std::tie(other.x, other.y, other.z);
+			GENERATE_OP_3(+, x, y, z);
 			return self;
 		}
-		friend vector3base& operator-=(vector3base& self, const vector3base& other)
+		friend self_t& operator-=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y, self.z) -= std::tie(other.x, other.y, other.z);
+			GENERATE_OP_3(-, x, y, z);
 			return self;
 		}
-		friend vector3base& operator*=(vector3base& self, const vector3base& other)
+		friend self_t& operator*=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y, self.z) *= std::tie(other.x, other.y, other.z);
+			GENERATE_OP_3(*, x, y, z);
 			return self;
 		}
-		friend vector3base& operator/=(vector3base& self, const vector3base& other)
+		friend self_t& operator/=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y, self.z) /= std::tie(other.x, other.y, other.z);
+			GENERATE_OP_3(/, x, y, z);
 			return self;
 		}
-
-		friend vector3base operator+(const vector3base& self, const vector3base& other)
+		friend self_t& operator+=(self_t& self, const T& other)
 		{
-			vector3base self1(self);
-			return self1 += other;
+			GENERATE_OP_T_3(+, other, x, y, z);
+			return self;
 		}
-		friend vector3base operator-(const vector3base& self, const vector3base& other)
+		friend self_t& operator-=(self_t& self, const T& other)
 		{
-			vector3base self1(self);
-			return self1 -= other;
+			GENERATE_OP_T_3(-, other, x, y, z);
+			return self;
 		}
-		friend vector3base operator*(const vector3base& self, const vector3base& other)
+		friend self_t& operator*=(self_t& self, const T& other)
 		{
-			vector3base self1(self);
-			return self1 *= other;
+			GENERATE_OP_T_3(*, other, x, y, z);
+			return self;
 		}
-		friend vector3base operator/(const vector3base& self, const vector3base& other)
+		friend self_t& operator/=(self_t& self, const T& other)
 		{
-			vector3base self1(self);
-			return self1 /= other;
+			GENERATE_OP_T_3(/, other, x, y, z);
+			return self;
 		}
+		GENERATE_OPERATOR(+, self_t)
+		GENERATE_OPERATOR(-, self_t)
+		GENERATE_OPERATOR(*, self_t)
+		GENERATE_OPERATOR(/, self_t)
+		GENERATE_OPERATOR(+, T)
+		GENERATE_OPERATOR(-, T)
+		GENERATE_OPERATOR(*, T)
+		GENERATE_OPERATOR(/, T)
 	};
 
 	template<typename T>
 	struct vector4base
 	{
+		using self_t = vector4base;
 		T x, y, z, w;
 
 		T* data() { return reinterpret_cast<T*>(this); }
 
-		friend vector4base& operator+=(vector4base& self, const vector4base& other)
+		friend self_t& operator+=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y, self.z, self.w) += std::tie(other.x, other.y, other.z, other.w);
+			GENERATE_OP_4(+, x, y, z, w);
 			return self;
 		}
-		friend vector4base& operator-=(vector4base& self, const vector4base& other)
+		friend self_t& operator-=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y, self.z, self.w) -= std::tie(other.x, other.y, other.z, other.w);
+			GENERATE_OP_4(-, x, y, z, w);
 			return self;
 		}
-		friend vector4base& operator*=(vector4base& self, const vector4base& other)
+		friend self_t& operator*=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y, self.z, self.w) *= std::tie(other.x, other.y, other.z, other.w);
+			GENERATE_OP_4(*, x, y, z, w);
 			return self;
 		}
-		friend vector4base& operator/=(vector4base& self, const vector4base& other)
+		friend self_t& operator/=(self_t& self, const self_t& other)
 		{
-			std::tie(self.x, self.y, self.z, self.w) /= std::tie(other.x, other.y, other.z, other.w);
+			GENERATE_OP_4(/, x, y, z, w);
 			return self;
 		}
-
-		friend vector4base operator+(const vector4base& self, const vector4base& other)
+		friend self_t& operator+=(self_t& self, const T& other)
 		{
-			vector4base self1(self);
-			return self1 += other;
+			GENERATE_OP_T_4(+, other, x, y, z, w);
+			return self;
 		}
-		friend vector4base operator-(const vector4base& self, const vector4base& other)
+		friend self_t& operator-=(self_t& self, const T& other)
 		{
-			vector4base self1(self);
-			return self1 -= other;
+			GENERATE_OP_T_4(-, other, x, y, z, w);
+			return self;
 		}
-		friend vector4base operator*(const vector4base& self, const vector4base& other)
+		friend self_t& operator*=(self_t& self, const T& other)
 		{
-			vector4base self1(self);
-			return self1 *= other;
+			GENERATE_OP_T_4(*, other, x, y, z, w);
+			return self;
 		}
-		friend vector4base operator/(const vector4base& self, const vector4base& other)
+		friend self_t& operator/=(self_t& self, const T& other)
 		{
-			vector4base self1(self);
-			return self1 /= other;
+			GENERATE_OP_T_4(/, other, x, y, z, w);
+			return self;
 		}
+		GENERATE_OPERATOR(+, self_t)
+		GENERATE_OPERATOR(-, self_t)
+		GENERATE_OPERATOR(*, self_t)
+		GENERATE_OPERATOR(/, self_t)
+		GENERATE_OPERATOR(+, T)
+		GENERATE_OPERATOR(-, T)
+		GENERATE_OPERATOR(*, T)
+		GENERATE_OPERATOR(/, T)
 	};
 
 	using vector2f = vector2base<float>;

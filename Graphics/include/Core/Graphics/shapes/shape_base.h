@@ -1,4 +1,5 @@
 #pragma once
+#include <any>
 #include <core/utilities.h>
 #include <core/memory.h>
 #include <core/text.h>
@@ -33,7 +34,9 @@ namespace core::shape
 		const core::vector3f& get_location();
 
 		void add_vertex(const core::shape::vertex& vertex);
-		void set_fill_color(const core::color_t& color);
+
+		void set_material(core::sptr_t<core::materials::material_base> material);
+		core::sptr_t<core::materials::material_base> get_material() const;
 
 		friend class graphic_engine_base;
 		friend class graphic_engine_directx;
@@ -42,7 +45,9 @@ namespace core::shape
 		core::vector3f m_scale = { 1.f,1.f,1.f };
 		core::vector3f m_location = { 0.f, 0.f, 0.f };
 		core::dynamic_array_t<core::shape::vertex> m_vertex_array;
-		color_t m_fill_color = {0.f,0.f,0.f,1.f};
+		core::sptr_t<core::materials::material_base> m_material;
+
+		std::any m_engine_data;
 	};
 }
 

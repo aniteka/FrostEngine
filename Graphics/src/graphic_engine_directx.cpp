@@ -194,6 +194,7 @@ void core::graphic_engine_directx::render()
 		m_device_painter->VSSetShader(m_dev_vertex_shader, nullptr, 0);
 		m_device_painter->PSSetShader(m_dev_pixel_shader, nullptr, 0);
 		m_device_painter->Draw(shape->m_vertex_array.size(), 0 );
+
 		buff->Release();
 	}
 
@@ -236,7 +237,10 @@ void core::graphic_engine_directx::remove_shape(core::graphic_engine_base::shape
 
 void core::graphic_engine_directx::remove_shapes_with_id(const core::id_t& shapes_id)
 {
-	auto [beg, end] = std::ranges::remove_if(m_shape_array, [](const shape_ptr_t& arg) { return false; });
+	auto [beg, end] = std::ranges::remove_if(m_shape_array, 
+		[&shapes_id](const shape_ptr_t& arg) { return arg->get_id() == shapes_id; });
+	if (beg == m_shape_array.end())
+		return;
 	m_shape_array.erase(beg, end);
 }
 
@@ -248,12 +252,17 @@ core::graphic_engine_base::shape_array_t core::graphic_engine_directx::get_shape
 		| std::ranges::to<shape_array_t>();
 }
 
-core::graphic_engine_base::shape_array_t core::graphic_engine_directx::get_shape_by_class(const std::type_info& class_type)
+core::graphic_engine_base::shape_array_t core::graphic_engine_directx::get_shapes_by_class(const std::type_info& class_type)
 {
 	return m_shape_array
 		| std::views::filter([&class_type](const shape_ptr_t& arg)
 			{return typeid(*arg) == class_type; })
 		| std::ranges::to<shape_array_t>();
+}
+
+std::size_t core::graphic_engine_directx::get_shapes_count() const
+{
+	return m_shape_array.size();
 }
 
 void core::graphic_engine_directx::release_all()

@@ -95,12 +95,12 @@ core::graphic_engine_directx::graphic_engine_directx(const info_t& info)
 	char code[] = R"(
 	float4 VS(float4 Pos : POSITION, float2 Texture : TEXCOORD0, float3 norm : NORMAL) : SV_POSITION
 	{
-		return float4(Pos.xyz, 1.f);
+		return Pos;
 	}
 
 	float4 PS(float4 Pos : SV_POSITION) : SV_Target
 	{
-		return float4(0.f, 0.f, 0.f, 1.f);
+		return float4(1.f, 1.f, 1.f, 1.f);
 	}
 	)";
 
@@ -171,9 +171,6 @@ void core::graphic_engine_directx::render()
 
 	for (const auto& shape : m_shape_array)
 	{
-		m_device_painter->VSSetShader(m_dev_vertex_shader, nullptr, 0);
-		m_device_painter->PSSetShader(m_dev_pixel_shader, nullptr, 0);
-
 		D3D11_BUFFER_DESC bd;
 		ZeroMemory(&bd, sizeof(bd));
 		bd.Usage = D3D11_USAGE_DEFAULT;
@@ -194,10 +191,13 @@ void core::graphic_engine_directx::render()
 		m_device_painter->IASetVertexBuffers(0, 1, &buff, &stride, &offset);
 		m_device_painter->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		m_device_painter->DrawIndexed(shape->m_vertex_array.size(), 0, 0);
+		m_device_painter->VSSetShader(m_dev_vertex_shader, nullptr, 0);
+		m_device_painter->PSSetShader(m_dev_pixel_shader, nullptr, 0);
+		m_device_painter->Draw(shape->m_vertex_array.size(), 0 );
+		buff->Release();
 	}
 
-	m_swap_chain->Present(1, 0);
+	m_swap_chain->Present(0, 0);
 }
 
 const core::color_t& core::graphic_engine_directx::get_clear_color() const

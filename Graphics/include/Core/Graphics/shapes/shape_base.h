@@ -2,6 +2,7 @@
 #include <core/utilities.h>
 #include <core/memory.h>
 #include <core/text.h>
+#include <core/graphics/materials/material_base.h>
 
 namespace core::shape
 {

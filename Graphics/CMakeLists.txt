@@ -14,7 +14,7 @@ add_library(Graphics STATIC
    "include/core/graphics/graphic_engine_directx.h" 
    "src/graphic_engine_directx.cpp" 
     
-        "include/core/graphics/shapes/shape_base.h" "src/shape_base.cpp")
+        "include/core/graphics/shapes/shape_base.h" "src/shape_base.cpp" "include/core/graphics/materials/material_base.h")
 
 set_target_properties(Graphics PROPERTIES 
     FOLDER "Core"

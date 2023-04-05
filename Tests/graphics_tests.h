@@ -26,9 +26,9 @@ BOOST_AUTO_TEST_SUITE(graphics_tests)
 	device.set_clear_color({ 0.2f, 0.2f, 0.8f, 1.f });
 
 	auto shape = std::make_shared<core::shape::shape_base>();
-	shape->add_vertex({{ -.5f, .5f, .2f }});
-	shape->add_vertex({{ .5f, .5f, .2f }});
-	shape->add_vertex({{ -.5f, -.5f, .2f }});
+	shape->add_vertex({{ .0f, .5f, .5f }});
+	shape->add_vertex({{ .5f, -.5f, .5f }});
+	shape->add_vertex({{ -.5f, -.5f, .5f }});
 	device.add_shape(shape);
 
 	MSG msg;

@@ -1,6 +1,7 @@
 #pragma once
 #include <core/transformable.h>
 #include <core/movable.h>
+#include <core/graphics/window_event_manager.h>
 #include <boost/noncopyable.hpp>
 
 #include <optional>
@@ -52,12 +53,16 @@ namespace core
 		bool should_close();
 		window_close_state close_state() const;
 
+		std::reference_wrapper<const window_event_manager> get_event_manager() const;
+
 		[[deprecated, nodiscard]] native_window_t* get_native() const;
 
 	protected:
 		native_window_ptr_t m_render_window = nullptr;
 		mutable std::recursive_mutex m_window_mutex;
 		window_close_state m_should_close = window_close_state::unclosed;
+		window_event_manager m_event_manager;
+
 
 	private:
 		void create_and_register_window_class(ctext_t CLASS_NAME, const info_t& create_info);

@@ -18,6 +18,8 @@ BOOST_AUTO_TEST_SUITE(graphics_tests)
 			.height = 500,
 			.title = CTEXT("OBAMA PRISM")
 		} };
+	auto& window_event_manager
+		= main_window.get_event_manager().get();
 
 	core::graphic_engine_directx device{
 		{
@@ -57,19 +59,21 @@ BOOST_AUTO_TEST_SUITE(graphics_tests)
 		).size(),
 		3);
 
-	MSG msg;
-	ZeroMemory(&msg, sizeof(msg));
+
+
 	while(!main_window.should_close())
 	{
-		if(PeekMessage(&msg, main_window.get_native(), 0, 0, PM_REMOVE))
+		window_event_manager.update();
+
+		switch (window_event_manager.get_current_event())
 		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-		else
-		{
-			device.render();
-		}
+		case core::window_events::destroy:
+			main_window.close();
+			break;
+		default: ;
+		};
+
+		device.render();
 	}
 
 }

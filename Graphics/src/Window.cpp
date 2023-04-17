@@ -20,6 +20,7 @@ LRESULT core::window::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 }
 
 core::window::window(const info_t& create_info)
+	: m_event_manager{*this}
 {
 	static unsigned count_of_windows = 0;
 	static std::mutex mutex_of_counter;
@@ -166,6 +167,11 @@ core::window::window_close_state core::window::close_state() const
 	return m_should_close;
 }
 
+std::reference_wrapper<const core::window_event_manager> core::window::get_event_manager() const
+{
+	return std::cref(m_event_manager);
+}
+
 core::window::native_window_t* core::window::get_native() const
 {
 	return m_render_window.get();
@@ -224,12 +230,11 @@ void core::window::create_window(ctext_t CLASS_NAME, ctext_t WINDOW_TITLE, const
 
 LRESULT core::window::window_proc_callback(HWND window_handler, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-	switch (msg)
-	{
-	case WM_DESTROY:
-		this->close();
-		return 0;
-	}
+	if(!this)
+		return DefWindowProc(window_handler, msg, wparam, lparam);
+	// TODO
+	if(msg == WM_DESTROY || msg == WM_NULL)
+		m_event_manager.m_current_event = static_cast<window_events>(msg);
 
 	return DefWindowProc(window_handler, msg, wparam, lparam);
 }
